@@ -23,8 +23,11 @@ const submitBtn = document.querySelector('.submit-btn');
 
 if(name == null){ // Means the login form is open/being used.
     submitBtn.addEventListener('click', () => {
-        fetch('/login-user',{
-            method: 'post',
+        console.log('Email:', email.value);  // Log email
+        console.log('Password:', password.value);  // Log password
+    
+        fetch('/login-user', {
+            method: 'POST',
             headers: new Headers({'Content-Type': 'application/json'}),
             body: JSON.stringify({
                 email: email.value,
@@ -34,8 +37,8 @@ if(name == null){ // Means the login form is open/being used.
         .then(res => res.json())
         .then(data => {
             validateData(data);
-        })
-    })
+        });
+    });    
 } else { // Means register page is open.
 
     submitBtn.addEventListener('click', (e) => {

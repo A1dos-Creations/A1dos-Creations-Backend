@@ -41,7 +41,7 @@ const db = knex({
 
 const app = express();
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL // or your connection string for the 'login' DB
+    connectionString: process.env.DATABASE_URL
 });
 
 let initialPath = path.join(__dirname, 'public');
@@ -61,7 +61,6 @@ app.get('/register', (req, res) => {
     res.sendFile(path.join(initialPath, 'register.html'));
 });
 
-// Register User
 app.post('/register-user', async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -70,19 +69,16 @@ app.post('/register-user', async (req, res) => {
     }
 
     try {
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Encrypt name & email
+        const hashedPassword = await bcrypt.hash(password, 10); // Ensure we await the hash
+
         const encryptedName = encrypt(name);
         const encryptedEmail = encrypt(email);
 
-        // Store in DB
         db('users')
             .insert({
                 name: encryptedName,
                 email: encryptedEmail,
-                password: hashedPassword
+                password: hashedPassword  // Ensure we store the hashed password
             })
             .returning(["name", "email"])
             .then(data => {
@@ -103,43 +99,42 @@ app.post('/register-user', async (req, res) => {
     }
 });
 
-// Login User
 app.post('/login-user', async (req, res) => {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+        return res.status(400).json('Email and password are required');
+    }
+
     try {
-        // Encrypt email to match stored value
-        const encryptedEmail = encrypt(email);
-
-        db.select('name', 'email', 'password')
+        // Fetch user from database
+        const user = await db.select('name', 'email', 'password')
             .from('users')
-            .where({ email: encryptedEmail })
-            .then(async data => {
-                if (data.length) {
-                    // Compare hashed password
-                    const validPassword = await bcrypt.compare(password, data[0].password);
-                    if (validPassword) {
-                        res.json({
-                            name: decrypt(data[0].name),
-                            email: decrypt(data[0].email)
-                        });
-                    } else {
-                        res.json('Email or password is incorrect');
-                    }
-                } else {
-                    res.json('Email or password is incorrect');
-                }
-            })
-            .catch(err => {
-                console.error('Login error:', err);
-                res.status(500).json('Server error');
-            });
+            .where({ email: email })  // Make sure you're querying correctly
+            .first();
 
+        if (!user) {
+            return res.status(400).json('Email or password is incorrect');
+        }
+
+        // Log the hashed password and comparison to verify what's happening
+        console.log('Stored hashed password:', user.password);
+        console.log('Password from user input:', password);
+
+        const isMatch = await bcrypt.compare(password, user.password);  // Compare input password with stored hash
+
+        if (isMatch) {
+            res.json({ name: user.name, email: user.email });
+        } else {
+            return res.status(400).json('Email or password is incorrect');
+        }
     } catch (err) {
-        console.error("Error processing login:", err);
-        res.status(500).json("Server error");
+        console.error('Login error:', err);
+        return res.status(500).json('Server error');
     }
 });
+
+
 
 const PORT = 3002;
 app.listen(PORT, () => {
