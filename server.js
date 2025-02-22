@@ -9,7 +9,6 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 require('dotenv').config();
 const encryptionKey = process.env.ENCRYPTION_KEY;
-
 const algorithm = "aes-256-cbc";
 
 // Encrypt function
@@ -31,12 +30,12 @@ function decrypt(encryptedText) {
 }
 
 const db = knex({
-    'client': 'pg',
-    'connection': {
-        'host': '127.0.0.1',
-        'user': 'postgres',
-        'password': 'A1dos-C25*',
-        'database': 'login'
+    client: 'pg',
+    connection: {
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME
     }
 });
 
