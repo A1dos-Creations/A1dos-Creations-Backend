@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+
+    <link rel="stylesheet" href="CSS/form.css">
+</head>
+<body>
+
+    <div class="alert-box">
+        <p class="alert">Error</p>
+    </div>
+
+    <div id="ballsDiv">
+        <img src="IMG/balls.png" id="balls">
+    </div>
+
+    <div class="form">
+        <h1 class="heading">Register</h1>
+        <input type="text" placeholder="Name" class="name" maxlength="10" required>
+        <input type="email" placeholder="Email" autocomplete="email" class="email" required>
+        <input type="password" placeholder="Password" autocomplete="new-password" class="password" required>
+        <button class="submit-btn">Register</button>
+        <a href="/login" class="link">Already have an account? Login.</a>
+    </div>
+
+    <script src="./js/form.js"></script>
+    
+</body>
+</html>

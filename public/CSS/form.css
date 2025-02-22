@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend+Deca');
+
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+*:focus{
+    outline: none;
+}
+
+#balls{
+    background-color: #00000000;
+    height: 130vh;
+    position: absolute;
+    z-index: -1000;
+}
+#ballsDiv{
+    position: absolute;
+    margin-top: -1250px;
+}
+
+body{
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Lexend Deca, sans-serif;
+    overflow: hidden;
+}
+
+.form{
+    width: 400px;
+    height: auto;
+    color: #000000;
+    font-size: 20px;
+    margin-left: -900px;
+}
+
+.heading{
+    text-align: center;
+    margin-bottom: 50px;
+    font-weight: 300;
+    opacity: 0;
+}
+
+input, .submit-btn{
+    width: 80%;
+    height: 35px;
+    display: block;
+    margin: 20px auto;
+    border-radius: 5px;
+    border: 2px solid #000000;
+    color:#000000;
+    background-color: rgba(255, 255, 255, 0.3);
+    padding: 15px;
+    transition: .5s;
+    font-family: Lexend Deca, sans-serif;
+    opacity: 0;
+}
+input::placeholder{
+    color: #000000;
+    font-family: Lexend Deca, sans-serif;
+    font-weight: 400;
+    text-transform: capitalize;
+}
+input:focus, .submit-btn:hover{
+    background-color: #bebebe;
+}
+
+.submit-btn{
+    background-color: #ffffff;
+    padding: 0 20px;
+    color: #000000;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 30px auto 10px;
+    width: auto;
+    opacity: 0;
+}
+
+.link {
+    opacity: 0;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 16px;
+    color: #3e4147;
+    text-decoration: underline;
+    font-weight: 500;
+    display: block;
+    text-transform: capitalize;
+    transition: 0.5s;
+}
+.link:hover{
+    color: #505c92;
+}
+
+.alert-box{
+    position: absolute;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 150px;
+    max-width: 90%;
+    width: auto;
+    height: auto;
+    padding: 10px;
+    text-transform: capitalize;
+    background: #e48383;
+    border-radius: 7px;
+    text-align: center;
+    text-decoration: underline;
+}
+.alert{
+    color: #000000;
+    font-weight: 500;
+    font-size: 16px;
+    text-transform: capitalize;
+    font-family: Lexend Deca, sans-serif;
+}

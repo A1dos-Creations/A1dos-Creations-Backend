@@ -1,0 +1,557 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend+Deca');
+
+* {box-sizing: border-box;}
+body {font-family: Verdana, sans-serif;}
+.mySlides {display: none;}
+img {vertical-align: middle;border-radius: 20px;border-color: white;border-style: solid;}
+
+/* Slideshow container */
+.slideshow-container {
+  max-width: 1000px;
+  position: relative;
+  margin: auto;
+}
+
+/* Caption text */
+.text {
+  color: #f2f2f2;
+  font-size: 15px;
+  padding: 8px 12px;
+  position: absolute;
+  bottom: 8px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Number text (1/3 etc) */
+.numbertext {
+  color: #f2f2f2;
+  font-size: 12px;
+  padding: 8px 12px;
+  position: absolute;
+  top: 0;
+}
+
+/* The dots/bullets/indicators */
+.dot {
+  height: 15px;
+  width: 15px;
+  margin: 0 2px;
+  background-color: #bbb;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.6s ease;
+}
+
+.active {
+  background-color: #717171;
+}
+
+/* Fading animation */
+.fade {
+  animation-name: fade;
+  animation-duration: 1.5s;
+}
+
+@keyframes fade {
+  from {opacity: 0} 
+  to {opacity: 1}
+}
+
+/* On smaller screens, decrease text size */
+@media only screen and (max-width: 300px) {
+  .text {font-size: 11px}
+}
+
+.header {
+  padding: 80px; /* some padding */
+  text-align: center; /* center the text */
+  background: #1abc9c; /* green background */
+  color: white; /* white text color */
+ }
+  
+/* Increase the font size of the <h1> element */
+.header h1 {
+ font-size: 40px;
+}
+
+@property --angle{
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.card{
+  margin: 0 auto;
+  padding: 20px;
+  width: 1000px;
+  background: #21243100;
+  text-align: center;
+  border-radius: 10px;
+  position: relative;
+}
+
+.card::after, .card::before{
+  content: '';
+  position: absolute;
+  height: 94%;
+  width: 73%;
+  background-image: conic-gradient(from var(--angle),transparent 70%, rgb(255, 183, 0));
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: -1;
+  padding: -10px;
+  border-radius: 20px;
+  animation: 10s spin linear infinite;
+}
+.card::before{
+  filter: blur(1.5rem);
+  opacity: 0.7;
+}
+@keyframes spin{
+  from{
+    --angle: 0deg;
+  }
+  to{
+    --angle: 360deg;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;400;700&display=swap');
+body {
+  font-family: 'Poppins';
+}
+section {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 10vh;
+}
+.hidden {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translateX(-100%);
+  transition: all 1.5s;
+}
+.show {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0);
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: rgb(27, 27, 27);
+}
+.download1 {
+  position: sticky;
+  height: 50px;
+  width: 100px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  margin-top: 30px;
+  margin-bottom: 30px;
+  color: whitesmoke;
+  text-align: center;
+  background-color: rgb(0, 0, 0);
+  font-family: "Lexend Deca";
+  border-radius: 4px;
+  border-width: 3px;
+  border-color: rgb(255, 255, 255);
+  border-style: solid;
+  -webkit-animation-duration: 0.4s;
+  animation-duration: 0.4s;
+  transition: all 0.4s ease;
+  text-decoration: none;
+}
+.download1:hover {
+  background-color: white;
+  color: #000000;
+  font-weight: 600;
+  width: 130px;
+}
+
+.nextPage {
+  margin-top: 50px;
+  height: 50px;
+  width: 170px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  color: whitesmoke;
+  text-align: center;
+  background-color: rgb(0, 0, 0);
+  font-family: "Lexend Deca";
+  border-radius: 4px;
+  border-width: 3px;
+  border-color: rgb(255, 255, 255);
+  border-style: solid;
+  -webkit-animation-duration: 0.4s;
+  animation-duration: 0.4s;
+  transition: all 0.4s ease;
+  text-decoration: none;
+}
+.nextPage2 {
+  margin-top: 50px;
+  height: 50px;
+  width: 180px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  color: whitesmoke;
+  text-align: center;
+  background-color: rgb(0, 0, 0);
+  font-family: "Lexend Deca";
+  font-size: large;
+  border-radius: 4px;
+  border-width: 3px;
+  border-color: rgb(255, 255, 255);
+  border-style: solid;
+  -webkit-animation-duration: 0.4s;
+  animation-duration: 0.4s;
+  transition: all 0.4s ease;
+  text-decoration: none;
+}
+.nextPage:hover {
+  background-color: white;
+  color: #000000;
+  font-weight: 600;
+  width: 190px;
+}
+.nextPage2:hover {
+  background-color: white;
+  color: #000000;
+  font-weight: 600;
+  width: 200px;
+}
+
+.glow {
+  color: #fff;
+  -webkit-animation: glow 1.2s ease-in-out infinite alternate;
+  -moz-animation: glow 1.2s ease-in-out infinite alternate;
+  animation: glow 1.2s ease-in-out infinite alternate;
+}
+/* rgb(158, 81, 173) */
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 10px #eb9feb, 0 0 20px #cb9ed9, 0 0 30px rgba(158, 81, 173, 0.772), 0 0 40px rgba(158, 81, 173, 0.723), 0 0 50px rgba(158, 81, 173, 0.723), 0 0 60px rgba(161, 75, 178, 0.772), 0 0 70px rgb(160, 60, 180);
+  }
+  to {
+    text-shadow: 0 0 20px #dd92ff, 0 0 30px #be4dff, 0 0 40px rgb(158, 81, 173), 0 0 50px rgb(154, 38, 177), 0 0 60px #b400e6, 0 0 70px rgb(145, 46, 165), 0 0 80px rgb(174, 36, 201);
+  }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: auto;
+  color: white;
+}
+
+.aboutH {
+  color: white;
+  font-family: monospace;
+  font-size:150%;
+}
+.aboutP {
+  text-indent: 20px;
+  max-width: 700px;
+  text-wrap-style: pretty;
+  font-family: monospace;
+  font-size:130%;
+}
+
+#gradient-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  background: radial-gradient(circle 220px at center, rgba(143, 0, 195, 0.519) 0%, rgba(255, 255, 255, 0) 50%);
+  transition: background-position 0s;
+  z-index: -1;
+}
+
+.button {
+  background-color: rgb(0, 0, 0);
+  color: rgb(230, 230, 230);
+  border-style: solid;
+  border-radius: 20px;
+  border-color: rgb(240, 238, 231);
+  font-size: 30px;
+  font-weight: 500;
+  font-family: "Lexend Deca", serif;
+  animation: showButton 1.5s forwards;
+
+  transform-style: preserve-3d;
+  -webkit-transition-duration: 0.4s;
+  transition-duration: 0.4s;
+  animation-delay: 45000ms;
+}
+.button:hover {
+  background-color: whitesmoke;
+  color: #000000;
+}
+
+a#button, a#button2 {
+  transition: transform 0.3s ease-out;
+  /* Optional: If you want to use 3D transforms, ensure the element preserves its 3D style */
+  transform-style: preserve-3d;
+}
+
+@keyframes showButton {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+::selection {
+  background: #ffffff;
+  color: var(--dynamic-selection-color, #000000);
+}
+
+.typewriter {
+  display: flex;
+  justify-content: center;
+}
+.typewriter p {
+  width: 0;
+  color: white;
+  font-family: monospace;
+  font-size: 1.5rem;
+  margin-inline: auto;
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  border-right: 1px solid;
+
+  animation: typing 3s steps(30) forwards,
+  blink 1s step-end infinite;
+  animation-delay: 1s;
+}
+
+.typewriter2 {
+  display: flex;
+  justify-content: left;
+  margin-left: 90px;
+}
+.typewriter2 p {
+  width: 0;
+  color: white;
+  font-family: monospace;
+  font-size: 3rem;
+  margin-inline: auto;
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  border-right: 1px solid;
+
+  animation: typing 1.45s steps(12) forwards,
+  blink 1s step-end infinite;
+  animation-delay: 2s;
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  50% {
+    border-color: transparent;
+  }
+}
+
+.fade-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: black;
+  opacity: 1; /* Start fully opaque for the fade-in */
+  z-index: 1000;
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+}
+.fade-overlay.hidden {
+  opacity: 0; /* Fade out the overlay */
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  padding: 2em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1;
+}
+.navItems {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 80px;
+  height: 40px;
+  gap: 2em;
+  background-color: rgba(115, 115, 115, 0);
+  color: white;
+  font-size: 25px;
+  border-style: none;
+  animation: showButton 1.5s forwards;
+  -webkit-transition-duration: 0.4s;
+  transition-duration: 0.4s;
+  margin-left: 30px;
+  text-decoration: underline;
+  text-decoration-color: #ffffff;
+}
+.navItems:hover {
+  background-color: rgb(255, 255, 255);
+  color: rgb(0, 0, 0);
+  border-radius: 7px;
+  border-color: #ffffff;
+  text-decoration: underline;
+  text-decoration-color: #000000;
+}
+.navBarLogo:hover {
+  border-color: rgb(132, 144, 255);
+  border-width: 8px;
+}
+.navBarLogo {
+  height: 45px;
+  width: auto;
+  border-radius: 4px;
+  border-width: 2px;
+  border-color: white;
+  -webkit-transition-duration: 0.4s;
+  transition-duration: 0.4s;
+}
+
+.hero {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.SPLAbout {
+  font-family: "Lexend Deca", monospace, serif;
+  font-size: 180px;
+  margin-bottom: -35px;
+}
+.SPLAboutP {
+  position: inherit;
+  font-family: "Lexend Deca", monospace, serif;
+  font-size: 18px;
+  max-width: 760px;
+  text-indent: 15px;
+  text-wrap-style: pretty;
+}
+
+.ss {
+  font-family: "Lexend Deca", monospace, serif;
+  font-size: 180px;
+  margin-bottom: 0px;
+}
+
+.unavailable {
+  font-family: Lexend Deca;
+  font-size: 50px;
+  color: rgb(0, 0, 0);
+}
+
+#rewatch {
+  font-family: Lexend Deca;
+  font-size: 15px;
+  color: rgb(255, 255, 255);
+  outline: none;
+  border-radius: 8px;
+  border-style: solid;
+  border-color: rgb(255, 255, 255);
+  height: 40px;
+  padding: 10px;
+  background-color: transparent;
+  -webkit-transition-duration: 0.4s;
+  transition-duration: 0.4s;
+}
+#rewatch:hover {
+  background-color: white;
+  color: black;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  background: #0a0a2a; /* Dark but not black */
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Don't interfere with page interaction */
+}
+
+h1 {
+  font-family: monospace;
+  font-size: 5rem;
+  text-align: center;
+  color: white;
+  margin-top: 1.5%;
+}
+h2 {
+  font-family: monospace;
+  font-size: 1.6rem;
+  text-align: center;
+  color: white;
+}
+
+form {
+  margin-bottom: 20px;
+  font-family: Lexend Deca;
+}
+input, textarea {
+  display: block;
+  margin: 10px 0;
+  padding: 8px;
+  width: 300px;
+  font-family: Lexend Deca;
+}
+button {
+  padding: 8px 16px;
+  font-family: Lexend Deca;
+}
+ul {
+  list-style-type: none;
+  padding: 0;  
+  font-family: Lexend Deca;
+}
+li {
+  background: #f0f0f0;
+  font-family: Lexend Deca;
+  margin: 5px 0;
+  padding: 10px;
+}

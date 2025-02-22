@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend+Deca');
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body{
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Lexend Deca, sans-serif;
+    background-color: #000000;
+}
+
+#alert{
+    color: white;
+    position: absolute;
+    z-index: 9999;
+    justify-items: center;
+    top: 100px;
+    background-color: rgba(34, 39, 59, 0.658);
+    padding: 7px 15px;
+    border-radius: 7px;
+    animation-name: showAlert;
+    animation-duration: 0.55s;
+    animation-delay: 1s;
+    animation-fill-mode: both;
+    opacity: 0;
+
+    animation-timing-function: ease-out;
+}
+@keyframes showAlert {
+    from{
+        top: -300px;
+        opacity: -1;
+    } 
+    to{
+        top: 100px;
+        opacity: 1;
+    }
+}
+#alert p {
+    color: white;
+}
+
+#notice{
+    position: absolute;
+    justify-items: center;
+    bottom: 40px;
+}
+#notice h2{
+    color: rgb(65, 65, 65);
+    font-size: 15px;
+}
+#notice p{
+    color: rgb(65, 65, 65);
+    font-size: 11px;
+}
+
+.container {
+   position: relative;
+   width: 90%;
+   height: 95vh;
+   border: 5px solid #fff;
+   display: flex;
+   justify-content: center;
+   align-items: center;
+   margin-left: auto;
+   margin-right: auto;
+   color: #fff;
+   border-radius: 22px;
+}
+.greeting{
+    position: absolute;
+}
+.logout{
+    position: absolute;
+    top: 0%;
+    right: 0;
+    margin-top: 10px;
+    margin-right: 10px;
+    padding: 10px 20px; 
+    text-transform: capitalize;
+    font-size: 16px;
+    color: white;
+    background-color: #00000000;
+    text-decoration: underline;
+    border: none;
+    font-family: Lexend Deca;
+    border-radius: 7px;
+    transition: .4s;
+    z-index: 1000;
+}
+.logout:hover{
+    background-color: white;
+    color: #000000;
+}
+
+.buttons {
+    position: absolute;
+    margin-top: 60vh;
+    gap: 8.5px;
+    color: white;
+    text-decoration: none;
+    font-family: Lexend Deca;
+    outline: none;
+}
+.buttons button {
+    padding: 7px 15px;
+    border-color: white;
+    border-radius: 7px;
+    background-color: #00000000;
+    color: white;
+    text-decoration: none;
+    font-family: Lexend Deca;
+    outline: none;
+    border-style: solid;
+    transition: 0.4s;
+}
+.buttons button a {
+    color: white;
+    text-decoration: none;
+    font-family: Lexend Deca;
+    outline: none;
+    transition: 0.4s;
+}
+.buttons button:hover {
+    background: white;
+    color: black;
+}
+.buttons button a:hover {
+    color: black;
+}
