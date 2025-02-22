@@ -23,8 +23,6 @@ const submitBtn = document.querySelector('.submit-btn');
 
 if(name == null){ // Means the login form is open/being used.
     submitBtn.addEventListener('click', () => {
-        console.log('Email:', email.value);  // Log email
-        console.log('Password:', password.value);  // Log password
     
         fetch('/login-user', {
             method: 'POST',
