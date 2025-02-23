@@ -1,7 +1,7 @@
 {
   "name": "login-api",
   "version": "1.0.0",
-  "description": "",
+  "description": "Login API for STL and A1 Main website.",
   "license": "ISC",
   "author": "A1dos-Creations 2025",
   "type": "commonjs",
