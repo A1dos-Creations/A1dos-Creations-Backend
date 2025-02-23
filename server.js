@@ -6,28 +6,7 @@ const bodyParser = require('body-parser');
 const knex = require('knex');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 require('dotenv').config();
-const encryptionKey = process.env.ENCRYPTION_KEY;
-const algorithm = "aes-256-cbc";
-
-// Encrypt function
-function encrypt(text) {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(algorithm, Buffer.from(encryptionKey), iv);
-    let encrypted = cipher.update(text, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return iv.toString("hex") + ":" + encrypted; 
-}
-
-// Decrypt function
-function decrypt(encryptedText) {
-    const [ivHex, encryptedData] = encryptedText.split(":");
-    const decipher = crypto.createDecipheriv(algorithm, Buffer.from(encryptionKey), Buffer.from(ivHex, "hex"));
-    let decrypted = decipher.update(encryptedData, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-}
 
 const db = knex({
     client: 'pg',
@@ -64,31 +43,28 @@ app.get('/register', (req, res) => {
 app.post('/register-user', async (req, res) => {
     const { name, email, password } = req.body;
 
-    if (!name.length || !email.length || !password.length) {
-        return res.json('Fill in all fields');
+    if (!name || !email || !password || !name.trim().length || !email.trim().length || !password.trim().length) {
+        return res.status(400).json('Fill in all fields');
     }
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10); // Ensure we await the hash
-
-        const encryptedName = encrypt(name);
-        const encryptedEmail = encrypt(email);
+        // Trim the password and other inputs to avoid extra whitespace issues
+        const trimmedPassword = password.trim();
+        const hashedPassword = await bcrypt.hash(trimmedPassword, 10);
 
         db('users')
             .insert({
-                name: encryptedName,
-                email: encryptedEmail,
-                password: hashedPassword  // Ensure we store the hashed password
+                name: name.trim(),
+                email: email.trim(),
+                password: hashedPassword
             })
-            .returning(["name", "email"])
+            .returning(["name", "email", "password"])
             .then(data => {
-                res.json({
-                    name: decrypt(data[0].name),
-                    email: decrypt(data[0].email)
-                });
+                console.log('User registered:', data[0]);
+                res.json({ name: data[0].name, email: data[0].email });
             })
             .catch(err => {
-                console.error('Database error:', err);
+                console.error('Database error during registration:', err);
                 const errorMessage = err.detail || err.message || 'Unknown error';
                 res.status(500).json(errorMessage);
             });
@@ -101,40 +77,42 @@ app.post('/register-user', async (req, res) => {
 
 app.post('/login-user', async (req, res) => {
     const { email, password } = req.body;
+    
+    console.log('Received login data:', { email, password });
 
     if (!email || !password) {
         return res.status(400).json('Email and password are required');
     }
 
     try {
-        // Fetch user from database
+        // Trim the inputs to remove any accidental whitespace
+        const trimmedEmail = email.trim();
+        const trimmedPassword = password.trim();
+
         const user = await db.select('name', 'email', 'password')
             .from('users')
-            .where({ email: email })  // Make sure you're querying correctly
+            .where({ email: trimmedEmail })
             .first();
 
         if (!user) {
+            console.log('No user found for email:', trimmedEmail);
             return res.status(400).json('Email or password is incorrect');
         }
 
-        // Log the hashed password and comparison to verify what's happening
         console.log('Stored hashed password:', user.password);
-        console.log('Password from user input:', password);
-
-        const isMatch = await bcrypt.compare(password, user.password);  // Compare input password with stored hash
+        const isMatch = await bcrypt.compare(trimmedPassword, user.password);
+        console.log('Password match:', isMatch);
 
         if (isMatch) {
             res.json({ name: user.name, email: user.email });
         } else {
-            return res.status(400).json('Email or password is incorrect');
+            res.status(400).json('Email or password is incorrect');
         }
     } catch (err) {
         console.error('Login error:', err);
-        return res.status(500).json('Server error');
+        res.status(500).json('Server error');
     }
 });
-
-
 
 const PORT = 3002;
 app.listen(PORT, () => {
