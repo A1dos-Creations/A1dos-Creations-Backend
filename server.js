@@ -5,7 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser'); 
 const knex = require('knex');
 const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const db = knex({
