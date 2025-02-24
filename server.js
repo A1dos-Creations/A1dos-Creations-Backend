@@ -15,13 +15,15 @@ const db = knex({
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME
-    }
+    },
+    pool: {
+        min: 2,
+        max: 10, // Adjust based on your Render plan limits
+        acquireTimeoutMillis: 60000 // Wait up to 60s for a connection
+      }
 });
 
 const app = express();
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
-});
 
 let initialPath = path.join(__dirname, 'public');
 
