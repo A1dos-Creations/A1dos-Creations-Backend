@@ -1,4 +1,3 @@
-// server.js (Website)
 var JavaScriptObfuscator = require('javascript-obfuscator');
 const express = require('express');
 const path = require('path');
@@ -16,7 +15,13 @@ const corsOptions = {
 
 const db = knex({
     client: 'pg',
-    connection: process.env.DATABASE_URL,  // DATABASE_URL contains everything needed
+    connection: {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { 
+            require: true, 
+            rejectUnauthorized: false
+        }
+    },
     pool: { min: 2, max: 10, acquireTimeoutMillis: 60000 }
 });
 
