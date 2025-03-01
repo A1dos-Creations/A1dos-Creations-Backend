@@ -24,9 +24,10 @@ const db = knex({
         port: process.env.DB_PORT || 5432
     },
     pool: { min: 2, max: 10, acquireTimeoutMillis: 60000 },
-    ssl: {
-        rejectUnauthorized: false, // Set this to true if you have a valid SSL certificate
-      },
+    ssl: { 
+        require: true,
+        rejectUnauthorized: false  // This bypasses certificate verification. Use with caution in production.
+    }
 });
 
 const app = express();
