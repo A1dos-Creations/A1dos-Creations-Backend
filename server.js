@@ -7,6 +7,13 @@ const knex = require('knex');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
+const cors = require('cors');
+
+const corsOptions = {
+    origin: ['chrome-extension://pafdkffolelojifgeepmjjofdendeojf', 'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-creations.com'],
+    credentials: true
+};
+app.use(cors(corsOptions));
 
 const db = knex({
     client: 'pg',
@@ -116,7 +123,7 @@ app.post('/login-user', async (req, res) => {
     }
 });
 
-const PORT = 3002;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
