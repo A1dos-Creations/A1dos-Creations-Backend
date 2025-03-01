@@ -5,4 +5,4 @@
 STL Login uses PSQL (Postgres) databases to store data. **All data is encrypted**. __We are commited to your privacy and safety, some code has been removed or obfuscated due to privacy reasons.__
 
 ## 🛡️ Your Security
-We are commited to your privacy and security. All user data is stored and ecrypted safely. If you would like to delete your data, please contact us at [rbentertainmentinfo@gmail.com](mailto:rbentertainmentinfo@gmail.com)
+We are commited to your privacy and security. All user data is stored and ecrypted safely. If you would like to delete your data, please contact us at [rbentertainmentinfo@gmail.com](mailto:rbentertainmentinfo@gmail.com). For any other inquiries or questions, please refer to the [License](https://github.com/A1dos-Creations/login-api-website?tab=License-1-ov-file).
