@@ -2,6 +2,8 @@
 >[!NOTE]
 > This repository is for full transparency in the login and data storing process. The current version displayed on this GitHub repo is not published. Accounts will become availible at the end of March along with a major STL update.
 
+<a href="https://github.com/A1dos-Creations/STL"><img alt="Static Badge" src="https://img.shields.io/badge/STL%20-%20blue?style=for-the-badge&label=Main%20Repository"></a>
+
 STL Login uses PSQL (Postgres) databases to store data. **All data is encrypted**. __We are commited to your privacy and safety, some code has been removed or obfuscated due to privacy reasons.__
 
 ## 🛡️ Your Security
