@@ -13,7 +13,6 @@ const corsOptions = {
     origin: ['chrome-extension://pafdkffolelojifgeepmjjofdendeojf', 'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-creations.com'],
     credentials: true
 };
-app.use(cors(corsOptions));
 
 const db = knex({
     client: 'pg',
@@ -31,6 +30,8 @@ const db = knex({
 });
 
 const app = express();
+
+app.use(cors(corsOptions));
 
 let initialPath = path.join(__dirname, 'public');
 
