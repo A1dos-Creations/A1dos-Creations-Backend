@@ -11,3 +11,12 @@ We are commited to your privacy and security. All user data is stored and ecrypt
 
 ## 📦 Release date and how it will be incorporated.
 > We are still deveolping the accounts system and database. Due to a lack of funding, we may reach a limit of users. If you would [consider donating](https://paypal.me/a1dos?country.x=US&locale.x=en_US) to help fund this project, it would be very much apreciated!
+
+Although we are still devoloping this feature, **it is expected to release around the end of March, 2025.**
+
+1. Before the update users will be notified that it's coming. An account is not needed to use the extension or website, it is required to sync tasks across devices. 
+
+2. Users will be able to link their Google account to their A1 account, allowing their Google Classroom tasks to sync to their tasks on STL. Tasks created on STL will also be added to the user's Google Calendar. These features are optional and will be able to be turned off at any time. 
+
+>[!IMPORTANT]
+>**These features have NOT released yet.**
