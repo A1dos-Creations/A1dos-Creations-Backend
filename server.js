@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -16,7 +15,7 @@ const db = knex({
 const app = express();
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 app.post('/register-user', async (req, res) => {
   const { name, email, password } = req.body;
@@ -37,7 +36,7 @@ app.post('/register-user', async (req, res) => {
     const token = jwt.sign(
       { id: newUser.id, email: newUser.email },
       JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: '2d' }
     );
 
     return res.json({ 
@@ -84,6 +83,19 @@ app.post('/login-user', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json('Error logging in');
+  }
+});
+
+app.post('/verify-token', (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ valid: false, message: 'No token provided' });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return res.json({ valid: true, user: decoded });
+  } catch (err) {
+    return res.status(401).json({ valid: false, message: 'Invalid or expired token' });
   }
 });
 
