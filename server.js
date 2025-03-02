@@ -25,6 +25,14 @@ const db = knex({
     pool: { min: 2, max: 10, acquireTimeoutMillis: 60000 }
 });
 
+db.raw('SELECT current_database() AS db, current_schema() AS schema')
+  .then((result) => {
+    console.log('Connected to:', result.rows[0]);
+  })
+  .catch(console.error);
+
+module.exports = db;
+
 module.exports = db;
 
 const app = express();
@@ -32,7 +40,6 @@ const app = express();
 app.use(cors(corsOptions));
 
 let initialPath = path.join(__dirname, 'public');
-
 app.use(bodyParser.json());
 app.use(express.static(initialPath));
 
