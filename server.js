@@ -1,135 +1,93 @@
-var JavaScriptObfuscator = require('javascript-obfuscator');
-const express = require('express');
-const path = require('path');
-const bodyParser = require('body-parser'); 
-const knex = require('knex');
-const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
+// server.js
 require('dotenv').config();
-const cors = require('cors');
-
-const corsOptions = {
-    origin: ['chrome-extension://pafdkffolelojifgeepmjjofdendeojf', 'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-creations.com'],
-    credentials: true
-};
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const knex = require('knex');
 
 const db = knex({
-    client: 'pg',
-    connection: {
-        connectionString: process.env.DATABASE_URL,
-        ssl: { 
-            require: true, 
-            rejectUnauthorized: false
-        }
-    },
-    pool: { min: 2, max: 10, acquireTimeoutMillis: 60000 }
+  client: 'pg',
+  connection: {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { require: true, rejectUnauthorized: false }
+  }
 });
-
-db.raw('SELECT current_database() AS db, current_schema() AS schema')
-  .then((result) => {
-    console.log('Connected to:', result.rows[0]);
-  })
-  .catch(console.error);
-
-module.exports = db;
-
-module.exports = db;
 
 const app = express();
+app.use(express.json());
 
-app.use(cors(corsOptions));
-
-let initialPath = path.join(__dirname, 'public');
-app.use(bodyParser.json());
-app.use(express.static(initialPath));
-
-app.get('/', (req, res) => {
-    res.sendFile('./index.html');
-});
-
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(initialPath, 'login.html'));
-});
-
-app.get('/register', (req, res) => {
-    res.sendFile(path.join(initialPath, 'register.html'));
-});
+const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
 
 app.post('/register-user', async (req, res) => {
-    const { name, email, password } = req.body;
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json('Please fill in name, email, and password');
+  }
 
-    if (!name || !email || !password || !name.trim().length || !email.trim().length || !password.trim().length) {
-        return res.status(400).json('Fill in all fields');
-    }
+  try {
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+    const [newUser] = await db('users')
+      .insert({
+        name: name.trim(),
+        email: email.trim(),
+        password: hashedPassword
+      })
+      .returning(['id', 'name', 'email']);
 
-    try {
-        // Trim the password and other inputs to avoid extra whitespace issues
-        const trimmedPassword = password.trim();
-        const hashedPassword = await bcrypt.hash(trimmedPassword, 10);
+    const token = jwt.sign(
+      { id: newUser.id, email: newUser.email },
+      JWT_SECRET,
+      { expiresIn: '1d' }
+    );
 
-        db('users')
-            .insert({
-                name: name.trim(),
-                email: email.trim(),
-                password: hashedPassword
-            })
-            .returning(["name", "email", "password"])
-            .then(data => {
-                console.log('User registered:', data[0]);
-                res.json({ name: data[0].name, email: data[0].email });
-            })
-            .catch(err => {
-                console.error('Database error during registration:', err);
-                const errorMessage = err.detail || err.message || 'Unknown error';
-                res.status(500).json(errorMessage);
-            });
-
-    } catch (err) {
-        console.error("Error processing registration:", err);
-        res.status(500).json("Server error");
-    }
+    return res.json({ 
+      user: { name: newUser.name, email: newUser.email },
+      token
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    return res.status(500).json('Error registering user');
+  }
 });
 
 app.post('/login-user', async (req, res) => {
-    const { email, password } = req.body;
-    
-    console.log('Received login data:', { email, password });
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json('Please provide email and password');
+  }
 
-    if (!email || !password) {
-        return res.status(400).json('Email and password are required');
+  try {
+    const user = await db('users')
+      .select('id', 'name', 'email', 'password')
+      .where({ email: email.trim() })
+      .first();
+
+    if (!user) {
+      return res.status(400).json('Email or password is incorrect');
     }
 
-    try {
-        // Trim the inputs to remove any accidental whitespace
-        const trimmedEmail = email.trim();
-        const trimmedPassword = password.trim();
-
-        const user = await db.select('name', 'email', 'password')
-            .from('users')
-            .where({ email: trimmedEmail })
-            .first();
-
-        if (!user) {
-            console.log('No user found for email:', trimmedEmail);
-            return res.status(400).json('Email or password is incorrect');
-        }
-
-        console.log('Stored hashed password:', user.password);
-        const isMatch = await bcrypt.compare(trimmedPassword, user.password);
-        console.log('Password match:', isMatch);
-
-        if (isMatch) {
-            res.json({ name: user.name, email: user.email });
-        } else {
-            res.status(400).json('Email or password is incorrect');
-        }
-    } catch (err) {
-        console.error('Login error:', err);
-        res.status(500).json('Server error');
+    const isMatch = await bcrypt.compare(password.trim(), user.password);
+    if (!isMatch) {
+      return res.status(400).json('Email or password is incorrect');
     }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    return res.json({ 
+      user: { name: user.name, email: user.email },
+      token
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json('Error logging in');
+  }
 });
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
