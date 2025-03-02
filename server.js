@@ -1,4 +1,5 @@
 require('dotenv').config();
+const cors = require('cors');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -14,6 +15,11 @@ const db = knex({
 
 const app = express();
 app.use(express.json());
+
+app.use(cors({
+    origin: ['chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-login.onrender.com', 'https://a1dos-creations.com/'],
+    credentials: true
+  }));
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
