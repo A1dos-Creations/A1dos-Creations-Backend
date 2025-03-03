@@ -17,7 +17,7 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-    origin: ['chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-login.onrender.com', 'https://a1dos-creations.com/'],
+    origin: ['chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-login.onrender.com', 'https://a1dos-creations.com', 'chrome-extension://pafdkffolelojifgeepmjjofdendeojf'],
     credentials: true
   }));
 
