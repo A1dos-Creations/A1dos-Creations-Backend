@@ -105,6 +105,85 @@ app.post('/verify-token', (req, res) => {
   }
 });
 
+app.post('/tasks', authenticateUser, async (req, res) => {
+    const { name, description, dueDate, completed } = req.body;
+  
+    if (!name || !dueDate) return res.status(400).json({ message: "Task name and due date required" });
+  
+    try {
+      const [task] = await db('tasks').insert({
+        user_id: req.user.id,
+        name,
+        description,
+        due_date: dueDate,
+        completed,
+        synced: true
+      }).returning('*');
+  
+      res.json(task);
+    } catch (error) {
+      console.error("Task creation error:", error);
+      res.status(500).json({ message: "Error saving task" });
+    }
+  });
+  
+  app.get('/tasks', authenticateUser, async (req, res) => {
+    try {
+      const tasks = await db('tasks').where({ user_id: req.user.id });
+      res.json(tasks);
+    } catch (error) {
+      console.error("Task fetch error:", error);
+      res.status(500).json({ message: "Error retrieving tasks" });
+    }
+  });
+  
+  app.delete('/tasks/:id', authenticateUser, async (req, res) => {
+    try {
+      await db('tasks').where({ id: req.params.id, user_id: req.user.id }).del();
+      res.json({ message: "Task deleted" });
+    } catch (error) {
+      console.error("Task delete error:", error);
+      res.status(500).json({ message: "Error deleting task" });
+    }
+  });
+  
+  app.patch('/tasks/:id', authenticateUser, async (req, res) => {
+    try {
+      await db('tasks').where({ id: req.params.id, user_id: req.user.id }).update({ completed: req.body.completed });
+      res.json({ message: "Task updated" });
+    } catch (error) {
+      console.error("Task update error:", error);
+      res.status(500).json({ message: "Error updating task" });
+    }
+  });
+
+  app.post('/sync-tasks', authenticateUser, async (req, res) => {
+    const { tasks } = req.body;
+  
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({ message: "No tasks to sync" });
+    }
+  
+    try {
+      const insertedTasks = await db('tasks')
+        .insert(tasks.map(task => ({
+          user_id: req.user.id,
+          name: task.name,
+          description: task.description,
+          due_date: task.dueDate,
+          completed: task.completed,
+          synced: true
+        })))
+        .returning('*');
+  
+      res.json({ message: "Tasks synced", tasks: insertedTasks });
+    } catch (error) {
+      console.error("Sync tasks error:", error);
+      res.status(500).json({ message: "Error syncing tasks" });
+    }
+  });
+  
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
