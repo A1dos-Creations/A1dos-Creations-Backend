@@ -82,7 +82,7 @@ app.post('/login-user', async (req, res) => {
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,      // Set in Render environment variables
   process.env.GOOGLE_CLIENT_SECRET,  // Set in Render environment variables
-  'https://a1dos-creations.com/auth/google/callback'
+  'https://a1dos-login.onrender.com/auth/google/callback'
 );
 
 app.get('/auth/google', (req, res) => {
