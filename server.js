@@ -1,10 +1,17 @@
+// /server.js
 require('dotenv').config();
-const cors = require('cors');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const knex = require('knex');
+const cors = require('cors');
+const { google } = require('googleapis');
 
+const app = express();
+app.use(cors()); // Adjust origins if needed
+app.use(express.json());
+
+// Database setup using DATABASE_URL
 const db = knex({
   client: 'pg',
   connection: {
@@ -13,22 +20,15 @@ const db = knex({
   }
 });
 
-const app = express();
-app.use(express.json());
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secure-secret';
 
-app.use(cors({
-    origin: ['chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', 'https://a1dos-login.onrender.com', 'https://a1dos-creations.com', 'chrome-extension://pafdkffolelojifgeepmjjofdendeojf'],
-    credentials: true
-  }));
-
-const JWT_SECRET = process.env.JWT_SECRET;
+// --- User Authentication Endpoints ---
 
 app.post('/register-user', async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json('Please fill in name, email, and password');
   }
-
   try {
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
     const [newUser] = await db('users')
@@ -39,16 +39,9 @@ app.post('/register-user', async (req, res) => {
       })
       .returning(['id', 'name', 'email']);
 
-    const token = jwt.sign(
-      { id: newUser.id, email: newUser.email },
-      JWT_SECRET,
-      { expiresIn: '2d' }
-    );
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '1d' });
 
-    return res.json({ 
-      user: { name: newUser.name, email: newUser.email },
-      token
-    });
+    res.json({ user: { name: newUser.name, email: newUser.email }, token });
   } catch (err) {
     console.error('Registration error:', err);
     return res.status(500).json('Error registering user');
@@ -60,7 +53,6 @@ app.post('/login-user', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json('Please provide email and password');
   }
-
   try {
     const user = await db('users')
       .select('id', 'name', 'email', 'password')
@@ -76,36 +68,76 @@ app.post('/login-user', async (req, res) => {
       return res.status(400).json('Email or password is incorrect');
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    return res.json({ 
-      user: { name: user.name, email: user.email },
-      token
-    });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ user: { name: user.name, email: user.email }, token });
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json('Error logging in');
   }
 });
 
-app.post('/verify-token', (req, res) => {
-  const { token } = req.body;
-  if (!token) {
-    return res.status(400).json({ valid: false, message: 'No token provided' });
+// --- Google OAuth Setup ---
+
+// Create an OAuth2 client with your credentials
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,      // Set in Render environment variables
+  process.env.GOOGLE_CLIENT_SECRET,  // Set in Render environment variables
+  'https://a1dos-creations.com/auth/google/callback'
+);
+
+app.get('/auth/google', (req, res) => {
+  const scopes = [
+    'https://www.googleapis.com/auth/classroom.courses.readonly', // Classroom (read-only)
+    'https://www.googleapis.com/auth/calendar'                    // Calendar
+  ];
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline', // so you can get a refresh token
+    scope: scopes,
+    prompt: 'consent'
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  const code = req.query.code;
+  const userId = req.query.state; // The user ID passed as state
+
+  if (!code) {
+    return res.status(400).send("No code provided.");
   }
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    return res.json({ valid: true, user: decoded });
+    const { tokens } = await oauth2Client.getToken(code);
+    console.log("Google OAuth tokens:", tokens);
+    
+    if (userId) {
+      await db('users').where({ id: userId }).update({
+        google_access_token: tokens.access_token,
+        google_refresh_token: tokens.refresh_token,
+        google_token_expiry: tokens.expiry_date 
+      });
+    } else {
+      console.error("No userId found in state parameter");
+    }
+    
+    res.redirect('/account.html?googleLinked=true');
   } catch (err) {
-    return res.status(401).json({ valid: false, message: 'Invalid or expired token' });
+    console.error("Error exchanging code for token:", err);
+    res.status(500).send("Authentication error");
   }
 });
 
-const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+
+app.post('/verify-token', (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
+      res.json({ valid: true, user: decoded });
+  });
 });
+
+
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
