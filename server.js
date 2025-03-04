@@ -120,7 +120,7 @@ app.get('/auth/google/callback', async (req, res) => {
       console.error("No userId found in state parameter");
     }
     
-    res.redirect('https://a1dos-creations.com/account.html?googleLinked=true');
+    res.redirect('https://a1dos-creations.com/auth/account.html?googleLinked=true');
   } catch (err) {
     console.error("Error exchanging code for token:", err);
     res.status(500).send("Authentication error");
