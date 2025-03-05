@@ -314,7 +314,7 @@ app.post('/create-checkout-session', async (req, res) => {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; 
 
-app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+app.post('/webhook', express({ type: 'application/json' }), (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
   
