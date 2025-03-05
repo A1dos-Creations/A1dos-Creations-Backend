@@ -103,7 +103,7 @@ app.post('/login-user', async (req, res) => {
       <p>Be sure to check out your account dashboard:</p>
       <br>
       <br>
-      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;">Account Dashboard</a>
+      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
       <br>
       <br>
       <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
@@ -175,7 +175,7 @@ app.get('/auth/google/callback', async (req, res) => {
       <p>Check your dashboard to unlink any connected google accounts. There you can also disable these emails.</p>
       <br>
       <br>
-      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;">Account Dashboard</a>
+      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
       <br>
       <br>
       <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
