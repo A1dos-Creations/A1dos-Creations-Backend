@@ -134,6 +134,28 @@ app.post('/verify-token', (req, res) => {
   });
 });
 
+app.post('/unlink-google', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required." });
+    }
+
+    await db('users')
+      .where({ id: userId })
+      .update({
+        google_access_token: null,
+        google_refresh_token: null,
+        google_token_expiry: null
+      });
+
+    res.json({ success: true, message: "Google account unlinked successfully." });
+  } catch (error) {
+    console.error("Error unlinking Google:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
