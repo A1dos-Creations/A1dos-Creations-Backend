@@ -5,6 +5,25 @@ const jwt = require('jsonwebtoken');
 const knex = require('knex');
 const cors = require('cors');
 const { google } = require('googleapis');
+//const nodemailer = require('nodemailer');
+
+const sgMail = require('@sendgrid/mail')
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+const msg = {
+  to: 'rbentertainemntinfo@example.com', // Change to your recipient
+  from: 'admin@a1dos-creations.com', // Change to your verified sender
+  subject: 'Test Email from A1DOS Creations',
+  text: 'and easy to do anywhere, even with Node.js',
+  html: '<button href="https://a1dos-creations.com/account/account">Go To Your Dashboard</button>',
+}
+sgMail
+  .send(msg)
+  .then(() => {
+    console.log('Email sent')
+  })
+  .catch((error) => {
+    console.error(error)
+  })
 
 const app = express();
 app.use(cors()); 
@@ -18,7 +37,7 @@ const db = knex({
   }
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secure-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 
 // --- User Authentication Endpoints ---
@@ -68,12 +87,19 @@ app.post('/login-user', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ user: { name: user.name, email: user.email }, token });
+    /*const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: email,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });*/
+
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json('Error logging in');
   }
 });
-
 
 // --- Google OAuth Setup ---
 const oauth2Client = new google.auth.OAuth2(
@@ -163,9 +189,6 @@ app.post('/unlink-google', async (req, res) => {
       res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
-
-
-
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
