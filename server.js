@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const knex = require('knex');
 const cors = require('cors');
 const { google } = require('googleapis');
-//const nodemailer = require('nodemailer');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const sgMail = require('@sendgrid/mail')
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
@@ -33,44 +33,55 @@ app.post('/register-user', async (req, res) => {
   }
   try {
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
+    // Insert new user with email_notifications set to true by default
     const [newUser] = await db('users')
       .insert({
         name: name.trim(),
         email: email.trim(),
-        password: hashedPassword
+        password: hashedPassword,
+        email_notifications: true
       })
-      .returning(['id', 'name', 'email']);
+      .returning(['id', 'name', 'email', 'email_notifications', 'created_at']);
 
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({ user: { name: newUser.name, email: newUser.email, email_notifications: user.email_notifications }, token });
+    const msg = {
+      to: email,
+      from: 'admin@a1dos-creations.com',
+      subject: `🚀 Welcome to A1dos Creations, ${name}! ✨`,
+      html: `
+        <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome to A1dos Creations, ${name}! ✨</h1>
+        <br>
+        <p>Be sure to check out your account dashboard:</p>
+        <br>
+        <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif; background-color:blue; padding: 5px 15px; text-decoration:none; color:white; border-radius:8px;">Account Dashboard</a>
+        <br>
+        <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
+      `,
+      trackingSettings: {
+        clickTracking: { enable: false, enableText: false }
+      }
+    };
 
-    if (newUser.email_notifications) {
-      const msg = {
-        to: email,
-        from: 'admin@a1dos-creations.com',
-        subject: `🚀 Welcome to A1dos Creations, ${name}! ✨`,
-        html: `
-          <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome to A1dos Creations, ${name}! ✨</h1>
-          <p>Check out your account dashboard:</p>
-          <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif; background-color:blue; padding: 5px 15px; text-decoration:none; color:white; border-radius:8px;">Account Dashboard</a>
-          <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
-        `,
-        trackingSettings: {
-          clickTracking: { enable: false, enableText: false }
-        }
-      };
-      sgMail.send(msg).then(() => {
-        console.log(`Welcome email sent to ${email}`);
-      }).catch(error => {
-        console.error("SendGrid Error:", error.response.body);
-      });
-    }
+    sgMail.send(msg)
+      .then(() => console.log(`Welcome email sent to ${email}`))
+      .catch(error => console.error("SendGrid Error:", error.response ? error.response.body : error));
+
+    res.json({ 
+      user: { 
+        name: newUser.name, 
+        email: newUser.email, 
+        email_notifications: newUser.email_notifications, 
+        created_at: newUser.created_at 
+      }, 
+      token 
+    });
   } catch (err) {
     console.error('Registration error:', err);
     return res.status(500).json('Error registering user');
   }
 });
+
 
 app.post('/login-user', async (req, res) => {
   const { email, password } = req.body;
@@ -92,13 +103,13 @@ app.post('/login-user', async (req, res) => {
       return res.status(400).json('Email or password is incorrect');
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
     res.json({ user: { name: user.name, email: user.email, email_notifications: user.email_notifications }, token });
     if(newUser.email_notifications){
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
-      subject: `🚀 Welcome Back, ${user.name}! ✨`,
+      subject: `🚀 New login for user: ${user.name} ✨`,
       html: `
       <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome Back, ${user.name}! ✨</h1>
       <br>
@@ -183,7 +194,7 @@ app.post('/verify-token', (req, res) => {
       if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
       res.json({ valid: true, user: decoded });
   });
-  if(newUser.email_notifications){
+  if(user.email_notifications){
   const msg = {
     to: email,
     from: 'admin@a1dos-creations.com',
@@ -264,6 +275,74 @@ app.post('/update-notifications', async (req, res) => {
       console.error("Error updating notifications:", error);
       res.status(500).json({ success: false, message: "Internal server error." });
   }
+});
+
+// --- Stripe Integration Endpoint with user metadata ---
+app.post('/create-checkout-session', async (req, res) => {
+  const { user_id } = req.body; 
+  if (!user_id) {
+    return res.status(400).json({ error: 'Missing user_id' });
+  }
+  
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Premium Feature'
+          },
+          unit_amount: 200,
+        },
+        quantity: 1
+      }],
+      mode: 'payment',
+      success_url: 'https://a1dos-creations.com/success',
+      cancel_url: 'https://a1dos-creations.com/cancel',
+      metadata: {
+        user_id
+      }
+    });
+    console.log("Stripe Checkout session created:", session.id);
+    res.json({ id: session.id });
+  } catch (error) {
+    console.error("Error creating Stripe Checkout session:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; 
+
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const userId = session.metadata.user_id;
+    
+    console.log(`Payment succeeded for user ${userId}. Session ID: ${session.id}`);
+    
+    db('users')
+      .where({ id: userId })
+      .update({ premium: true })
+      .then(() => {
+        console.log(`User ${userId} updated with premium feature.`);
+      })
+      .catch(err => {
+        console.error('Database update error:', err);
+      });
+  }
+  
+  res.json({ received: true });
 });
 
 
