@@ -93,9 +93,9 @@ app.post('/login-user', async (req, res) => {
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
-      subject: `🚀 Welcome Back, ${name}! ✨`,
+      subject: `🚀 Welcome Back, ${user.name}! ✨`,
       html: `
-      <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome Back, ${name}! ✨</h1>
+      <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome Back, ${user.name}! ✨</h1>
       <br>
       <p>Be sure to check out your account dashboard:</p>
       <br>
@@ -106,7 +106,10 @@ app.post('/login-user', async (req, res) => {
       <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
       `,
     }
-    sgMail.send(msg);
+    sgMail
+      .send(msg)
+      .then(() => console.log(`Login email sent to ${email}`))
+      .catch(error => console.error("SendGrid Error:", error.response.body));
 
   } catch (err) {
     console.error('Login error:', err);
