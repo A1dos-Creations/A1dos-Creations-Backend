@@ -1,4 +1,3 @@
-// /server.js
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -8,10 +7,9 @@ const cors = require('cors');
 const { google } = require('googleapis');
 
 const app = express();
-app.use(cors()); // Adjust origins if needed
+app.use(cors()); 
 app.use(express.json());
 
-// Database setup using DATABASE_URL
 const db = knex({
   client: 'pg',
   connection: {
@@ -22,8 +20,8 @@ const db = knex({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secure-secret';
 
-// --- User Authentication Endpoints ---
 
+// --- User Authentication Endpoints ---
 app.post('/register-user', async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) {
@@ -76,8 +74,8 @@ app.post('/login-user', async (req, res) => {
   }
 });
 
-// --- Google OAuth Setup ---
 
+// --- Google OAuth Setup ---
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,     
   process.env.GOOGLE_CLIENT_SECRET, 
@@ -125,7 +123,6 @@ app.get('/auth/google/callback', async (req, res) => {
     res.status(500).send("Authentication error");
   }
 });
-
 
 app.post('/verify-token', (req, res) => {
   const { token } = req.body;
