@@ -10,7 +10,7 @@ const { google } = require('googleapis');
 const sgMail = require('@sendgrid/mail')
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 const msg = {
-  to: 'rbentertainemntinfo@example.com', // Change to your recipient
+  to: 'rbentertainmentinfo@gmail.com', // Change to your recipient
   from: 'admin@a1dos-creations.com', // Change to your verified sender
   subject: 'Test Email from A1DOS Creations',
   text: 'and easy to do anywhere, even with Node.js',
