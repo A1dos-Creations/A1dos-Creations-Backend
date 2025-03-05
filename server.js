@@ -78,20 +78,19 @@ app.post('/login-user', async (req, res) => {
 
 // --- Google OAuth Setup ---
 
-// Create an OAuth2 client with your credentials
 const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,      // Set in Render environment variables
-  process.env.GOOGLE_CLIENT_SECRET,  // Set in Render environment variables
+  process.env.GOOGLE_CLIENT_ID,     
+  process.env.GOOGLE_CLIENT_SECRET, 
   'https://a1dos-login.onrender.com/auth/google/callback'
 );
 
 app.get('/auth/google', (req, res) => {
   const scopes = [
-    'https://www.googleapis.com/auth/classroom.courses.readonly', // Classroom (read-only)
-    'https://www.googleapis.com/auth/calendar'                    // Calendar
+    'https://www.googleapis.com/auth/classroom.courses.readonly', 
+    'https://www.googleapis.com/auth/calendar'                    
   ];
   const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline', // so you can get a refresh token
+    access_type: 'offline',
     scope: scopes,
     prompt: 'consent'
   });
@@ -100,7 +99,7 @@ app.get('/auth/google', (req, res) => {
 
 app.get('/auth/google/callback', async (req, res) => {
   const code = req.query.code;
-  const userId = req.query.state; // The user ID passed as state
+  const userId = req.query.state; 
 
   if (!code) {
     return res.status(400).send("No code provided.");
@@ -120,7 +119,7 @@ app.get('/auth/google/callback', async (req, res) => {
       console.error("No userId found in state parameter");
     }
     
-    res.redirect('https://a1dos-creations.com/auth/account.html?googleLinked=true');
+    res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
   } catch (err) {
     console.error("Error exchanging code for token:", err);
     res.status(500).send("Authentication error");
