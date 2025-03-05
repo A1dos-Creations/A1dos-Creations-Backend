@@ -183,7 +183,7 @@ app.post('/verify-token', (req, res) => {
       if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
       res.json({ valid: true, user: decoded });
   });
-  if(emailNotifications){
+  if(newUser.email_notifications){
   const msg = {
     to: email,
     from: 'admin@a1dos-creations.com',
