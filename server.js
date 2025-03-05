@@ -45,26 +45,27 @@ app.post('/register-user', async (req, res) => {
 
     res.json({ user: { name: newUser.name, email: newUser.email }, token });
 
-    const msg = {
-      to: email,
-      from: 'admin@a1dos-creations.com',
-      subject: `🚀 Welcome to A1dos Creations, ${name}! ✨`,
-      html: `
-      <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome to A1dos Creations, ${name}! ✨</h1>
-      <br>
-      <p>Be sure to check out your account dashboard:</p>
-      <br>
-      <br>
-      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
-      <br>
-      <br>
-      <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
-      `,
-      trackingSettings: {
-        clickTracking: { enable: false, enableText: false }, 
+    if (newUser.email_notifications) {
+      const msg = {
+        to: email,
+        from: 'admin@a1dos-creations.com',
+        subject: `🚀 Welcome to A1dos Creations, ${name}! ✨`,
+        html: `
+          <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome to A1dos Creations, ${name}! ✨</h1>
+          <p>Check out your account dashboard:</p>
+          <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif; background-color:blue; padding: 5px 15px; text-decoration:none; color:white; border-radius:8px;">Account Dashboard</a>
+          <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
+        `,
+        trackingSettings: {
+          clickTracking: { enable: false, enableText: false }
+        }
+      };
+      sgMail.send(msg).then(() => {
+        console.log(`Welcome email sent to ${email}`);
+      }).catch(error => {
+        console.error("SendGrid Error:", error.response.body);
+      });
     }
-    }
-    sgMail.send(msg);
   } catch (err) {
     console.error('Registration error:', err);
     return res.status(500).json('Error registering user');
@@ -93,6 +94,7 @@ app.post('/login-user', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ user: { name: user.name, email: user.email }, token });
+    if(newUser.email_notifications){
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
@@ -116,6 +118,7 @@ app.post('/login-user', async (req, res) => {
       .send(msg)
       .then(() => console.log(`Login email sent to ${email}`))
       .catch(error => console.error("SendGrid Error:", error.response.body));
+    }
 
   } catch (err) {
     console.error('Login error:', err);
@@ -173,14 +176,14 @@ app.get('/auth/google/callback', async (req, res) => {
 });
 
 app.post('/verify-token', (req, res) => {
-  const { token } = req.body;
+  const { token, email_notifications } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
       if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
       res.json({ valid: true, user: decoded });
   });
-
+  if(emailNotifications){
   const msg = {
     to: email,
     from: 'admin@a1dos-creations.com',
@@ -204,6 +207,7 @@ app.post('/verify-token', (req, res) => {
     .send(msg)
     .then(() => console.log(`Login email sent to ${email}`))
     .catch(error => console.error("SendGrid Error:", error.response.body));
+  }
 });
 
 app.post('/unlink-google', async (req, res) => {
@@ -238,24 +242,30 @@ app.post('/unlink-google', async (req, res) => {
 
 app.post('/update-notifications', async (req, res) => {
   try {
-    const { token, emailNotifications } = req.body;
-    if (!token) {
-      return res.status(400).json({ success: false, message: "Missing token." });
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
-    
-    await db('users')
-      .where({ id: userId })
-      .update({ email_notifications: emailNotifications });
-    
-    res.json({ success: true, message: "Notification preferences updated." });
+      const { token, emailNotifications } = req.body;
+      if (!token) {
+          return res.status(400).json({ success: false, message: "Missing token." });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+      
+      const user = await db('users').where({ id: userId }).first();
+      if (!user) {
+          return res.status(404).json({ success: false, message: "User not found." });
+      }
+      
+      await db('users')
+        .where({ id: userId })
+        .update({ email_notifications: emailNotifications });
+      
+      res.json({ success: true, message: "Notification preferences updated." });
   } catch (error) {
-    console.error("Error updating notifications:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
+      console.error("Error updating notifications:", error);
+      res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
+
 
 
 const PORT = process.env.PORT || 3002;
