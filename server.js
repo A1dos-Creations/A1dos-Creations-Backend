@@ -43,7 +43,7 @@ app.post('/register-user', async (req, res) => {
 
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({ user: { name: newUser.name, email: newUser.email }, token });
+    res.json({ user: { name: newUser.name, email: newUser.email, email_notifications: user.email_notifications }, token });
 
     if (newUser.email_notifications) {
       const msg = {
@@ -79,7 +79,7 @@ app.post('/login-user', async (req, res) => {
   }
   try {
     const user = await db('users')
-      .select('id', 'name', 'email', 'password')
+      .select('id', 'name', 'email', 'password', 'email_notifications')
       .where({ email: email.trim() })
       .first();
 
@@ -93,7 +93,7 @@ app.post('/login-user', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
-    res.json({ user: { name: user.name, email: user.email }, token });
+    res.json({ user: { name: user.name, email: user.email, email_notifications: user.email_notifications }, token });
     if(newUser.email_notifications){
     const msg = {
       to: email,
