@@ -9,21 +9,6 @@ const { google } = require('googleapis');
 
 const sgMail = require('@sendgrid/mail')
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-const msg = {
-  to: 'rbentertainmentinfo@gmail.com', // Change to your recipient
-  from: 'admin@a1dos-creations.com', // Change to your verified sender
-  subject: 'Test Email from A1DOS Creations',
-  text: 'and easy to do anywhere, even with Node.js',
-  html: '<button href="https://a1dos-creations.com/account/account">Go To Your Dashboard</button>',
-}
-sgMail
-  .send(msg)
-  .then(() => {
-    console.log('Email sent')
-  })
-  .catch((error) => {
-    console.error(error)
-  })
 
 const app = express();
 app.use(cors()); 
@@ -59,6 +44,24 @@ app.post('/register-user', async (req, res) => {
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '1d' });
 
     res.json({ user: { name: newUser.name, email: newUser.email }, token });
+
+    const msg = {
+      to: email,
+      from: 'admin@a1dos-creations.com',
+      subject: `🚀 Welcome to A1dos Creations, ${name}! ✨`,
+      html: `
+      <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome to A1dos Creations, ${name}! ✨</h1>
+      <br>
+      <p>Be sure to check out your account dashboard:</p>
+      <br>
+      <br>
+      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;">Account Dashboard</a>
+      <br>
+      <br>
+      <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
+      `,
+    }
+    sgMail.send(msg);
   } catch (err) {
     console.error('Registration error:', err);
     return res.status(500).json('Error registering user');
@@ -87,13 +90,23 @@ app.post('/login-user', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ user: { name: user.name, email: user.email }, token });
-    /*const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: email,
-        pass: process.env.EMAIL_PASSWORD
-      }
-    });*/
+    const msg = {
+      to: email,
+      from: 'admin@a1dos-creations.com',
+      subject: `🚀 Welcome Back, ${name}! ✨`,
+      html: `
+      <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome Back, ${name}! ✨</h1>
+      <br>
+      <p>Be sure to check out your account dashboard:</p>
+      <br>
+      <br>
+      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;">Account Dashboard</a>
+      <br>
+      <br>
+      <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
+      `,
+    }
+    sgMail.send(msg);
 
   } catch (err) {
     console.error('Login error:', err);
