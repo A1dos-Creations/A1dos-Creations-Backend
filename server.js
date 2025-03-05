@@ -164,30 +164,6 @@ app.get('/auth/google/callback', async (req, res) => {
     } else {
       console.error("No userId found in state parameter");
     }
-
-    const msg = {
-      to: email,
-      from: 'admin@a1dos-creations.com',
-      subject: `❗A Google Account Was Linked To Your A1dos Account.`,
-      html: `
-      <h1 style="font-size:20px;font-family: sans-serif;">A Google account has been linked to your A1dos Account. Was this you?</h1>
-      <br>
-      <p>Check your dashboard to unlink any connected google accounts. There you can also disable these emails.</p>
-      <br>
-      <br>
-      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
-      <br>
-      <br>
-      <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
-      `,
-      trackingSettings: {
-        clickTracking: { enable: false, enableText: false },
-    }
-    }
-    sgMail
-      .send(msg)
-      .then(() => console.log(`Login email sent to ${email}`))
-      .catch(error => console.error("SendGrid Error:", error.response.body));
     
     res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
   } catch (err) {
@@ -204,6 +180,30 @@ app.post('/verify-token', (req, res) => {
       if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
       res.json({ valid: true, user: decoded });
   });
+
+  const msg = {
+    to: email,
+    from: 'admin@a1dos-creations.com',
+    subject: `❗A Google Account Was Linked To Your A1dos Account.`,
+    html: `
+    <h1 style="font-size:20px;font-family: sans-serif;">A Google account has been linked to your A1dos Account. Was this you?</h1>
+    <br>
+    <p>Check your dashboard to unlink any connected google accounts. There you can also disable these emails.</p>
+    <br>
+    <br>
+    <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
+    <br>
+    <br>
+    <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
+    `,
+    trackingSettings: {
+      clickTracking: { enable: false, enableText: false },
+  }
+  }
+  sgMail
+    .send(msg)
+    .then(() => console.log(`Login email sent to ${email}`))
+    .catch(error => console.error("SendGrid Error:", error.response.body));
 });
 
 app.post('/unlink-google', async (req, res) => {
