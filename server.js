@@ -144,6 +144,11 @@ app.post('/unlink-google', async (req, res) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userId = decoded.id;
 
+      const user = await db('users').where({ id: userId }).first();
+      if (!user) {
+          return res.status(404).json({ success: false, message: "User not found." });
+      }
+
       await db('users')
           .where({ id: userId })
           .update({
@@ -158,6 +163,7 @@ app.post('/unlink-google', async (req, res) => {
       res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
+
 
 
 
