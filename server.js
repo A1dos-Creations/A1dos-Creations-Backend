@@ -136,25 +136,29 @@ app.post('/verify-token', (req, res) => {
 
 app.post('/unlink-google', async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID is required." });
-    }
+      const { token } = req.body;
+      if (!token) {
+          return res.status(400).json({ success: false, message: "Missing token." });
+      }
 
-    await db('users')
-      .where({ id: userId })
-      .update({
-        google_access_token: null,
-        google_refresh_token: null,
-        google_token_expiry: null
-      });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
 
-    res.json({ success: true, message: "Google account unlinked successfully." });
+      await db('users')
+          .where({ id: userId })
+          .update({
+              google_access_token: null,
+              google_refresh_token: null,
+              google_token_expiry: null
+          });
+
+      res.json({ success: true, message: "Google account unlinked successfully." });
   } catch (error) {
-    console.error("Error unlinking Google:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
+      console.error("Error unlinking Google:", error);
+      res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
+
 
 
 const PORT = process.env.PORT || 3002;
