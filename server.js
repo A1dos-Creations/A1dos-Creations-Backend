@@ -60,6 +60,9 @@ app.post('/register-user', async (req, res) => {
       <br>
       <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
       `,
+      trackingSettings: {
+        clickTracking: { enable: false, enableText: false }, // Disable tracking for this email only
+    }
     }
     sgMail.send(msg);
   } catch (err) {
@@ -105,6 +108,9 @@ app.post('/login-user', async (req, res) => {
       <br>
       <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
       `,
+      trackingSettings: {
+        clickTracking: { enable: false, enableText: false }, // Disable tracking for this email only
+    }
     }
     sgMail
       .send(msg)
