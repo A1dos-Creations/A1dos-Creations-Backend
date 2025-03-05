@@ -236,5 +236,27 @@ app.post('/unlink-google', async (req, res) => {
   }
 });
 
+app.post('/update-notifications', async (req, res) => {
+  try {
+    const { token, emailNotifications } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Missing token." });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+    
+    await db('users')
+      .where({ id: userId })
+      .update({ email_notifications: emailNotifications });
+    
+    res.json({ success: true, message: "Notification preferences updated." });
+  } catch (error) {
+    console.error("Error updating notifications:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
