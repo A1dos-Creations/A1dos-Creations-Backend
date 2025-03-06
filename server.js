@@ -65,6 +65,7 @@ app.post('/send-verification-code', async (req, res) => {
             from: 'admin@a1dos-creations.com',
             subject: `${user.name} Password Change Verification Code`,
             html: `
+            <div style="justify-items:center;">
                 <tr height="32" style="height:32px">
                 <td></td>
                 </tr>
@@ -98,6 +99,7 @@ app.post('/send-verification-code', async (req, res) => {
                 <tr height="32" style="height:32px">
                   <td></td>
                 </tr>
+                </div>
                 `,
                 trackingSettings: {
                   clickTracking: { enable: false, enableText: false }
