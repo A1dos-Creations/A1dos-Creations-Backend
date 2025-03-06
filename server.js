@@ -24,6 +24,84 @@ const db = knex({
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+const crypto = require('crypto');
+
+app.post('/send-verification-code', async (req, res) => {
+    const { email } = req.body;
+    try {
+        // Check if the user exists
+        const user = await db('users').where({ email }).first();
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        // Generate a random 6-digit verification code
+        const verificationCode = crypto.randomInt(100000, 999999).toString();
+        const expiryTime = new Date(Date.now() + 15 * 60 * 1000); // Expires in 15 minutes
+
+        await db('verification_codes').insert({
+            user_id: user.id,
+            code: verificationCode,
+            expiry: expiryTime
+        });
+
+        const msg = {
+            to: email,
+            from: 'admin@a1dos-creations.com',
+            subject: `${user.name} Password Change Verification Code`,
+            html: `
+                <h1>Password Change Request</h1>
+                <p>Your verification code is: <strong>${verificationCode}</strong></p>
+                <p>This code will expire in 15 minutes.</p>
+                <br>
+                <br>
+                <p>If you did not request a password change, please ignore this email. We will never ask for these codes or for your password.</p>
+            `,
+        };
+        sgMail.send(msg)
+            .then(() => res.json({ success: true, message: "Verification code sent." }))
+            .catch(error => {
+                console.error("SendGrid Error:", error.response.body);
+                res.status(500).json({ success: false, message: "Error sending email." });
+            });
+
+    } catch (error) {
+        console.error("Error sending verification code:", error);
+        res.status(500).json({ success: false, message: "Internal server error." });
+    }
+});
+
+app.post('/update-password', async (req, res) => {
+  const { email, verificationCode, newPassword } = req.body;
+  try {
+      const user = await db('users').where({ email }).first();
+      if (!user) {
+          return res.status(404).json({ success: false, message: "User not found." });
+      }
+
+      const storedCode = await db('verification_codes')
+          .where({ user_id: user.id, code: verificationCode })
+          .where('expiry', '>', new Date()) 
+          .orderBy('created_at', 'desc')
+          .first();
+
+      if (!storedCode) {
+          return res.status(400).json({ success: false, message: "Invalid or expired verification code." });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await db('users').where({ id: user.id }).update({ password: hashedPassword });
+
+      await db('verification_codes').where({ user_id: user.id }).del();
+
+      res.json({ success: true, message: "Password updated successfully." });
+  } catch (error) {
+      console.error("Error updating password:", error);
+      res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
 
 // --- User Authentication Endpoints ---
 app.post('/register-user', async (req, res) => {
@@ -269,7 +347,32 @@ app.post('/update-notifications', async (req, res) => {
       await db('users')
         .where({ id: userId })
         .update({ email_notifications: emailNotifications });
-      
+
+      if(user.email_notifications) {
+        const msg = {
+          to: email,
+          from: 'admin@a1dos-creations.com',
+          subject: `✅ Nofications Restored!`,
+          html: `
+          <h1 style="font-size:20px;font-family: sans-serif;">You will now recieve alerts for Google accounts being linked, succesful signins, and welcome messages.</h1>
+          <br>
+          <p>Check your dashboard to customize your email preferences.</p>
+          <br>
+          <br>
+          <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
+          <br>
+          <br>
+          <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
+          `,
+          trackingSettings: {
+            clickTracking: { enable: false, enableText: false },
+        }
+        }
+        sgMail
+          .send(msg)
+          .then(() => console.log(`Login email sent to ${email}`))
+          .catch(error => console.error("SendGrid Error:", error.response.body));
+        }
       res.json({ success: true, message: "Notification preferences updated." });
   } catch (error) {
       console.error("Error updating notifications:", error);
@@ -279,7 +382,7 @@ app.post('/update-notifications', async (req, res) => {
 
 // --- Stripe Integration Endpoint with user metadata ---
 app.post('/create-checkout-session', async (req, res) => {
-  const { user_id } = req.body; 
+  const { token } = req.body; 
   if (!user_id) {
     return res.status(400).json({ error: 'Missing user_id' });
   }
@@ -314,9 +417,22 @@ app.post('/create-checkout-session', async (req, res) => {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; 
 
-app.post('/webhook', express({ type: 'application/json' }), (req, res) => {
+app.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
+  const { token } = req.body;
   let event;
+
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userId = decoded.id;
+  
+  const user = await db('users').where({ id: userId }).first();
+  if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+  }
+  
+  await db('users')
+    .select('id', 'name', 'email', 'password', 'email_notifications')
+    .where({ name: user.name })
   
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
@@ -336,11 +452,37 @@ app.post('/webhook', express({ type: 'application/json' }), (req, res) => {
       .update({ premium: true })
       .then(() => {
         console.log(`User ${userId} updated with premium feature.`);
-      })
-      .catch(err => {
-        console.error('Database update error:', err);
-      });
-  }
+        if(user.email_notifications){
+          const msg = {
+            to: user.email,
+            from: 'admin@a1dos-creations.com',
+            subject: `Welcome Premium User! 🎉`,
+            html: `
+            <h1 style="font-size:20px;font-family: sans-serif;">Your account has been upgraded to Premium for $2 a month.</h1>
+            <h2 style="font-size:16px;font-family: sans-serif;">Thank you for your purchase!</h2>
+            <br>
+            <p>If this was not you, please <a href="mailto:rbentertainmentinfo@gmail.com">contact support</a> and check your recent payments.</p>
+            <br>
+            <br>
+            <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
+            <br>
+            <br>
+            <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
+            `,
+            trackingSettings: {
+              clickTracking: { enable: false, enableText: false },
+          }
+          }
+          sgMail
+            .send(msg)
+            .then(() => console.log(`Login email sent to ${email}`))
+            .catch(error => console.error("SendGrid Error:", error.response.body));
+          }
+        })
+        .catch(err => {
+          console.error('Database update error:', err);
+        });
+      }
   
   res.json({ received: true });
 });
