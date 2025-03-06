@@ -65,17 +65,20 @@ app.post('/send-verification-code', async (req, res) => {
             from: 'admin@a1dos-creations.com',
             subject: `${user.name} Password Change Verification Code`,
             html: `
+                <tr height="32" style="height:32px"><td></td></tr>
+                <tr align="center">
                 <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
                 <tbody>
                 <tr>
                 <td width="8" style="width:8px"></td>
                 <td>
-                <h1>Password Change Request</h1>
-                <p>This code will expire in 15 minutes.</p>
+
                 <br>
                 <br>
                 <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
                 <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                <div style="font-size:24px"><strong>Password Change Verification Request</strong></div>
+                <div style="font-size:24px">For user: <strong>${user.name}</strong></div>
                 <div style="font-size:24px">Your verification code is: <strong>${verificationCode}</strong></div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
@@ -88,7 +91,12 @@ app.post('/send-verification-code', async (req, res) => {
                 <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, ignore this email. We will never ask for your password or verification code.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Check activity</a>
                 </div>
                 </div>
+                </tr>
+                <tr height="32" style="height:32px"><td></td></tr>
                 `,
+                trackingSettings: {
+                  clickTracking: { enable: false, enableText: false }
+                }
         };
         sgMail.send(msg)
             .then(() => res.json({ success: true, message: "Verification code sent." }))
@@ -133,13 +141,37 @@ app.post('/update-password', async (req, res) => {
         from: 'admin@a1dos-creations.com',
         subject: `${user.name} Password Change Verification Code`,
         html: `
-            <h1>Password Changed</h1>
-            <p>Your A1dos Account password has been changed.</strong></p>
-            <p>Not You?</p>
-            <br>
-            <br>
-            <a><button>Visit Account Dashboard</button></a>
+                <tr height="32" style="height:32px"><td></td></tr>
+                <tr align="center">
+                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+                <tbody>
+                <tr>
+                <td width="8" style="width:8px"></td>
+                <td>
+                <br>
+                <br>
+                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                <div style="font-size:24px"><strong>A1dos Account Password Changed</strong></div>
+                <div style="font-size:24px">For account: <strong>${user.name} (${email})</strong></div>
+                <div style="font-size:24px">Your A1 account password has been changed.</div>
+                <table align="center" style="margin-top:8px">
+                <tbody><tr style="line-height:normal">
+                <td align="right" style="padding-right:8px">
+                </td>
+                </tr>
+                </tbody>
+                </table>
+                </div>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, reset your password immediately. Please review your account activity.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Check activity</a>
+                </div>
+                </div>
+                </tr>
+                <tr height="32" style="height:32px"><td></td></tr>
         `,
+        trackingSettings: {
+          clickTracking: { enable: false, enableText: false }
+        }
     };
     sgMail.send(msg)
         .then(() => res.json({ success: true, message: "Verification code sent." }))
