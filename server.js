@@ -14,7 +14,8 @@ const allowedOrigins = [
   'https://a1dos-creations.com',
   'https://a1dos-login.onrender.com',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
-  'chrome-extension://pafdkffolelojifgeepmjjofdendeojf'
+  'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
+  'http://127.0.0.1:3000/'
 ];
 
 const app = express();
@@ -201,7 +202,6 @@ app.post('/register-user', async (req, res) => {
   }
   try {
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
-    // Insert new user with email_notifications set to true by default
     const [newUser] = await db('users')
       .insert({
         name: name.trim(),
@@ -211,7 +211,7 @@ app.post('/register-user', async (req, res) => {
       })
       .returning(['id', 'name', 'email', 'email_notifications', 'created_at']);
 
-    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '2h' });
 
     const msg = {
       to: email,
@@ -272,6 +272,18 @@ app.post('/login-user', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
+
+    const deviceInfo = req.headers['user-agent'] || "Unknown device";
+    const ipAddress = req.ip || "Unknown IP";
+    await db('user_sessions').insert({
+      user_id: user.id,
+      session_token: token,  // optionally store the token or a session id
+      device_info: deviceInfo,
+      ip_address: ipAddress,
+      login_time: new Date(),
+      last_activity: new Date()
+    });
+
     res.json({ user: { name: user.name, email: user.email, email_notifications: user.email_notifications }, token });
     if(newUser.email_notifications){
     const msg = {
@@ -577,7 +589,41 @@ app.post('/webhook', async (req, res) => {
   res.json({ received: true });
 });
 
+app.post('/get-user-sessions', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Missing token." });
+    }
 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    const sessions = await db('user_sessions').where({ user_id: userId });
+    res.json({ success: true, sessions });
+  } catch (error) {
+    console.error("Error retrieving user sessions:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+app.post('/revoke-session', async (req, res) => {
+  try {
+    const { token, sessionId } = req.body;
+    if (!token || !sessionId) {
+      return res.status(400).json({ success: false, message: "Missing token or sessionId." });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    await db('user_sessions').where({ id: sessionId, user_id: userId }).del();
+    res.json({ success: true, message: "Session revoked." });
+  } catch (error) {
+    console.error("Error revoking session:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
