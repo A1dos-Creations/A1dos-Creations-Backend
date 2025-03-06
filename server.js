@@ -29,15 +29,13 @@ const crypto = require('crypto');
 app.post('/send-verification-code', async (req, res) => {
     const { email } = req.body;
     try {
-        // Check if the user exists
         const user = await db('users').where({ email }).first();
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found." });
         }
 
-        // Generate a random 6-digit verification code
         const verificationCode = crypto.randomInt(100000, 999999).toString();
-        const expiryTime = new Date(Date.now() + 15 * 60 * 1000); // Expires in 15 minutes
+        const expiryTime = new Date(Date.now() + 15 * 60 * 1000); 
 
         await db('verification_codes').insert({
             user_id: user.id,
