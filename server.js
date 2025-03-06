@@ -10,8 +10,25 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const sgMail = require('@sendgrid/mail')
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
+const allowedOrigins = [
+  'https://a1dos-creations.com',
+  'https://a1dos-login.onrender.com',
+  'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
+  'chrome-extension://pafdkffolelojifgeepmjjofdendeojf'
+];
+
 const app = express();
-app.use(cors()); 
+app.use(cors({
+  origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+      } else {
+          callback(new Error('Not allowed by CORS'));
+      }
+  },
+  methods: 'GET,POST',
+  allowedHeaders: 'Content-Type,Authorization'
+}));
 app.use(express.json());
 
 const db = knex({
@@ -94,6 +111,25 @@ app.post('/update-password', async (req, res) => {
       await db('verification_codes').where({ user_id: user.id }).del();
 
       res.json({ success: true, message: "Password updated successfully." });
+      const msg = {
+        to: email,
+        from: 'admin@a1dos-creations.com',
+        subject: `${user.name} Password Change Verification Code`,
+        html: `
+            <h1>Password Changed</h1>
+            <p>Your A1dos Account password has been changed.</strong></p>
+            <p>Not You?</p>
+            <br>
+            <br>
+            <a><button>Visit Account Dashboard</button></a>
+        `,
+    };
+    sgMail.send(msg)
+        .then(() => res.json({ success: true, message: "Verification code sent." }))
+        .catch(error => {
+            console.error("SendGrid Error:", error.response.body);
+            res.status(500).json({ success: false, message: "Error sending email." });
+        });
   } catch (error) {
       console.error("Error updating password:", error);
       res.status(500).json({ success: false, message: "Internal server error." });
