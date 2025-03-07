@@ -18,6 +18,53 @@ const allowedOrigins = [
   'http://127.0.0.1:3000/'
 ];
 
+const schoolData = {
+  "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],
+  "LAUSD": ["Abraham Lincoln Senior High", "Academia Moderna", "Academy for Enriched Sciences", "Academy of Environmental & Social Policy (ESP)", "Academy of Medical Arts at Carson High", "Academy of the Canyons", "Academy of the Canyons Middle College High", "Academy of the Redwoods"]
+};
+
+app.get('/get-schools', (req, res) => {
+    res.json(schoolData);
+});
+
+app.post('/save-school', async (req, res) => {
+  try {
+      const { token, schoolDistrict, schoolName } = req.body;
+      if (!token) return res.status(400).json({ success: false, message: "Missing token." });
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+
+      await db('user_schools')
+          .insert({ user_id: userId, school_district: schoolDistrict, school_name: schoolName })
+          .onConflict('user_id')
+          .merge();
+
+      res.json({ success: true, message: "School saved successfully." });
+  } catch (error) {
+      console.error("Error saving school:", error);
+      res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+app.post('/get-user-school', async (req, res) => {
+  try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ success: false, message: "Missing token." });
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+
+      const school = await db('user_schools').where({ user_id: userId }).first();
+      if (!school) return res.json({ success: false, school: null });
+
+      res.json({ success: true, school });
+  } catch (error) {
+      console.error("Error fetching school:", error);
+      res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
 const app = express();
 app.use(cors({
   origin: function (origin, callback) {
@@ -147,7 +194,7 @@ app.post('/update-password', async (req, res) => {
       const msg = {
         to: email,
         from: 'admin@a1dos-creations.com',
-        subject: `${user.name} Password Change Verification Code`,
+        subject: `${user.name} Password Changed`,
         html: `
                 <tr height="32" style="height:32px"><td></td></tr>
                 <tr align="center">
@@ -161,8 +208,8 @@ app.post('/update-password', async (req, res) => {
                 <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
                 <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
                 <div style="font-size:24px"><strong>A1dos Account Password Changed</strong></div>
-                <div style="font-size:24px">For account: <strong>${user.name} (${email})</strong></div>
-                <div style="font-size:24px">Your A1 account password has been changed.</div>
+                <div style="font-size:19px">For account: <strong>${user.name} (${email})</strong></div>
+                <div style="font-size:15px">Your A1 account password has been changed.</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
@@ -558,18 +605,35 @@ app.post('/webhook', async (req, res) => {
           const msg = {
             to: user.email,
             from: 'admin@a1dos-creations.com',
-            subject: `Welcome Premium User! 🎉`,
+            subject: `Welcome to Premium ${user.name}! 🎉`,
             html: `
-            <h1 style="font-size:20px;font-family: sans-serif;">Your account has been upgraded to Premium for $2 a month.</h1>
-            <h2 style="font-size:16px;font-family: sans-serif;">Thank you for your purchase!</h2>
-            <br>
-            <p>If this was not you, please <a href="mailto:rbentertainmentinfo@gmail.com">contact support</a> and check your recent payments.</p>
-            <br>
-            <br>
-            <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
-            <br>
-            <br>
-            <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
+                <tr height="32" style="height:32px"><td></td></tr>
+                <tr align="center">
+                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+                <tbody>
+                <tr>
+                <td width="8" style="width:8px"></td>
+                <td>
+                <br>
+                <br>
+                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                <div style="font-size:24px"><strong>🎁 Welcome To Premium!</strong></div>
+                <div style="font-size:19px">For account: <strong>${user.name}</strong> <strong style="font-size:16px">(${email})</strong></div>
+                <div style="font-size:15px">Your account has been upgraded to Premium.</div>
+                <table align="center" style="margin-top:8px">
+                <tbody><tr style="line-height:normal">
+                <td align="right" style="padding-right:8px">
+                </td>
+                </tr>
+                </tbody>
+                </table>
+                </div>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>You will recieve a unique product key to enter in STL that will unlock several new features!<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Get Product Key</a>
+                </div>
+                </div>
+                </tr>
+                <tr height="32" style="height:32px"><td></td></tr>
             `,
             trackingSettings: {
               clickTracking: { enable: false, enableText: false },
@@ -595,10 +659,8 @@ app.post('/get-user-sessions', async (req, res) => {
     if (!token) {
       return res.status(400).json({ success: false, message: "Missing token." });
     }
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
-
     const sessions = await db('user_sessions').where({ user_id: userId });
     res.json({ success: true, sessions });
   } catch (error) {
@@ -607,16 +669,15 @@ app.post('/get-user-sessions', async (req, res) => {
   }
 });
 
+
 app.post('/revoke-session', async (req, res) => {
   try {
     const { token, sessionId } = req.body;
     if (!token || !sessionId) {
       return res.status(400).json({ success: false, message: "Missing token or sessionId." });
     }
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
-
     await db('user_sessions').where({ id: sessionId, user_id: userId }).del();
     res.json({ success: true, message: "Session revoked." });
   } catch (error) {
