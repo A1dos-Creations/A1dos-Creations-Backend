@@ -324,7 +324,7 @@ app.post('/login-user', async (req, res) => {
     const ipAddress = req.ip || "Unknown IP";
     await db('user_sessions').insert({
       user_id: user.id,
-      session_token: token,  // optionally store the token or a session id
+      session_token: token, 
       device_info: deviceInfo,
       ip_address: ipAddress,
       login_time: new Date(),
@@ -332,7 +332,7 @@ app.post('/login-user', async (req, res) => {
     });
 
     res.json({ user: { name: user.name, email: user.email, email_notifications: user.email_notifications }, token });
-    if(newUser.email_notifications){
+    if(user.email_notifications){
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
@@ -661,7 +661,9 @@ app.post('/get-user-sessions', async (req, res) => {
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
-    const sessions = await db('user_sessions').where({ user_id: userId });
+    const sessions = await db('user_sessions')
+    .select('id', 'device_info', 'location', 'login_time', 'last_activity')
+    .where({ user_id: userId });
     res.json({ success: true, sessions });
   } catch (error) {
     console.error("Error retrieving user sessions:", error);
