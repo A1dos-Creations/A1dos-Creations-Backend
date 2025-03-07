@@ -321,15 +321,29 @@ app.post('/login-user', async (req, res) => {
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
 
     const deviceInfo = req.headers['user-agent'] || "Unknown device";
-    const ipAddress = req.ip || "Unknown IP";
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || "Unknown IP";
+
+    let location = "Unknown Location";
+    try {
+        const locationResponse = await fetch(`http://ip-api.com/json/${ipAddress}`);
+        const locationData = await locationResponse.json();
+        if (locationData.status === "success") {
+            location = `${locationData.city}, ${locationData.regionName}, ${locationData.country}`;
+        }
+    } catch (error) {
+        console.error("Error fetching location:", error);
+    }
+
     await db('user_sessions').insert({
       user_id: user.id,
-      session_token: token, 
+      session_token: token,
       device_info: deviceInfo,
       ip_address: ipAddress,
+      location: location,
       login_time: new Date(),
       last_activity: new Date()
     });
+
 
     res.json({ user: { name: user.name, email: user.email, email_notifications: user.email_notifications }, token });
     if(user.email_notifications){
