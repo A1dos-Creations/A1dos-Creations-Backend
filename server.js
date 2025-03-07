@@ -18,6 +18,32 @@ const allowedOrigins = [
   'http://127.0.0.1:3000/'
 ];
 
+const app = express();
+app.use(cors({
+  origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+      } else {
+          callback(new Error('Not allowed by CORS'));
+      }
+  },
+  methods: 'GET,POST',
+  allowedHeaders: 'Content-Type,Authorization'
+}));
+app.use(express.json());
+
+const db = knex({
+  client: 'pg',
+  connection: {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { require: true, rejectUnauthorized: false }
+  }
+});
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+const crypto = require('crypto');
+
 const schoolData = {
   "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],
   "LAUSD": ["Abraham Lincoln Senior High", "Academia Moderna", "Academy for Enriched Sciences", "Academy of Environmental & Social Policy (ESP)", "Academy of Medical Arts at Carson High", "Academy of the Canyons", "Academy of the Canyons Middle College High", "Academy of the Redwoods"]
@@ -64,32 +90,6 @@ app.post('/get-user-school', async (req, res) => {
       res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
-
-const app = express();
-app.use(cors({
-  origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-      } else {
-          callback(new Error('Not allowed by CORS'));
-      }
-  },
-  methods: 'GET,POST',
-  allowedHeaders: 'Content-Type,Authorization'
-}));
-app.use(express.json());
-
-const db = knex({
-  client: 'pg',
-  connection: {
-    connectionString: process.env.DATABASE_URL,
-    ssl: { require: true, rejectUnauthorized: false }
-  }
-});
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-const crypto = require('crypto');
 
 app.post('/send-verification-code', async (req, res) => {
     const { email } = req.body;
