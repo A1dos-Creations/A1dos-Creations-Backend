@@ -676,16 +676,19 @@ app.post('/get-user-sessions', async (req, res) => {
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
-    const sessions = await db('user_sessions')
-    .select('id', 'device_info', 'location', 'login_time', 'last_activity')
-    .where({ user_id: userId });
-    res.json({ success: true, sessions });
+    const sessionsQuery = `
+      SELECT DISTINCT ON (device_info, location) id, device_info, location, login_time, last_activity, session_token
+      FROM user_sessions
+      WHERE user_id = ?
+      ORDER BY device_info, location, login_time DESC;
+    `;
+    const sessions = await db.raw(sessionsQuery, [userId]);
+    res.json({ success: true, sessions: sessions.rows });
   } catch (error) {
     console.error("Error retrieving user sessions:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
-
 
 app.post('/revoke-session', async (req, res) => {
   try {
