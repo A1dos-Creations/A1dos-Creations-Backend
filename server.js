@@ -513,7 +513,7 @@ app.post('/update-notifications', async (req, res) => {
 
       if(user.email_notifications) {
         const msg = {
-          to: email,
+          to: user.email,
           from: 'admin@a1dos-creations.com',
           subject: `✅ Nofications Restored!`,
           html: `
