@@ -259,7 +259,7 @@ app.post('/register-user', async (req, res) => {
       })
       .returning(['id', 'name', 'email', 'email_notifications', 'created_at']);
 
-    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '2d' });
 
     const msg = {
       to: email,
@@ -340,7 +340,7 @@ app.post('/login-user', async (req, res) => {
       return res.status(400).json('Email or password is incorrect');
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2d' });
 
     const deviceInfo = req.headers['user-agent'] || "Unknown device";
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || "Unknown IP";
@@ -427,20 +427,22 @@ app.get('/auth/google/callback', async (req, res) => {
   if (!code) {
     return res.status(400).send("No code provided.");
   }
-
+  if (!userId) {
+    return res.status(400).send("UserId not provided in state parameter.");
+  }
+  
   try {
     const { tokens } = await oauth2Client.getToken(code);
     console.log("Google OAuth tokens:", tokens);
     
-    if (userId) {
-      await db('users').where({ id: userId }).update({
-        google_access_token: tokens.access_token,
-        google_refresh_token: tokens.refresh_token,
-        google_token_expiry: tokens.expiry_date 
-      });
-    } else {
-      console.error("No userId found in state parameter");
-    }
+    await db('users').where({ id: userId }).update({ 
+      google_access_token: tokens.access_token,
+      google_refresh_token: tokens.refresh_token,
+      google_token_expiry: tokens.expiry_date,
+      google_id: tokens.id_token 
+          ? JSON.parse(Buffer.from(tokens.id_token.split('.')[1], 'base64').toString()).sub 
+          : null
+    });
     
     res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
   } catch (err) {
@@ -448,7 +450,6 @@ app.get('/auth/google/callback', async (req, res) => {
     res.status(500).send("Authentication error");
   }
 });
-
 app.post('/verify-token', (req, res) => {
   const { token, email_notifications } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
@@ -730,16 +731,13 @@ app.post('/revoke-session', async (req, res) => {
   }
 });
 
+// ----- Check Google Link Status Endpoint -----
 app.post('/check-google-link', async (req, res) => {
   try {
       const { token } = req.body;
-      if (!token) {
-          return res.status(400).json({ linked: false, message: "No token provided." });
-      }
-
+      if (!token) return res.status(400).json({ linked: false, message: "No token provided." });
       const decoded = jwt.verify(token, JWT_SECRET);
       const userId = decoded.id;
-
       const user = await db('users').where({ id: userId }).select('google_id').first();
       if (user && user.google_id) {
           return res.json({ linked: true });
@@ -751,8 +749,6 @@ app.post('/check-google-link', async (req, res) => {
       return res.status(500).json({ linked: false, message: "Internal server error." });
   }
 });
-
-
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
