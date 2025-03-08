@@ -422,27 +422,29 @@ app.get('/auth/google', (req, res) => {
 
 app.get('/auth/google/callback', async (req, res) => {
   const code = req.query.code;
-  const userId = req.query.state; 
-
+  const userId = req.query.state;
   if (!code) {
     return res.status(400).send("No code provided.");
   }
   if (!userId) {
-    return res.status(400).send("UserId not provided in state parameter.");
+    console.error("UserId not provided in state parameter. Cannot link Google account.");
+    return res.redirect('https://a1dos-creations.com/account/account?googleLinked=false');
   }
   
   try {
     const { tokens } = await oauth2Client.getToken(code);
     console.log("Google OAuth tokens:", tokens);
     
-    await db('users').where({ id: userId }).update({ 
-      google_access_token: tokens.access_token,
-      google_refresh_token: tokens.refresh_token,
-      google_token_expiry: tokens.expiry_date,
-      google_id: tokens.id_token 
+    await db('users')
+      .where({ id: userId })
+      .update({ 
+        google_access_token: tokens.access_token,
+        google_refresh_token: tokens.refresh_token,
+        google_token_expiry: tokens.expiry_date,
+        google_id: tokens.id_token 
           ? JSON.parse(Buffer.from(tokens.id_token.split('.')[1], 'base64').toString()).sub 
           : null
-    });
+      });
     
     res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
   } catch (err) {
@@ -450,6 +452,7 @@ app.get('/auth/google/callback', async (req, res) => {
     res.status(500).send("Authentication error");
   }
 });
+
 app.post('/verify-token', (req, res) => {
   const { token, email_notifications } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
