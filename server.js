@@ -719,7 +719,6 @@ app.post('/check-google-link', async (req, res) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       const userId = decoded.id;
 
-      // Query the database to check if the user has a linked Google account
       const user = await db('users').where({ id: userId }).select('google_id').first();
       if (user && user.google_id) {
           return res.json({ linked: true });
@@ -731,6 +730,7 @@ app.post('/check-google-link', async (req, res) => {
       return res.status(500).json({ linked: false, message: "Internal server error." });
   }
 });
+
 
 
 const PORT = process.env.PORT || 3002;
