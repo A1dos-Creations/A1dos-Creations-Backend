@@ -709,5 +709,29 @@ app.post('/revoke-session', async (req, res) => {
   }
 });
 
+app.post('/check-google-link', async (req, res) => {
+  try {
+      const { token } = req.body;
+      if (!token) {
+          return res.status(400).json({ linked: false, message: "No token provided." });
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const userId = decoded.id;
+
+      // Query the database to check if the user has a linked Google account
+      const user = await db('users').where({ id: userId }).select('google_id').first();
+      if (user && user.google_id) {
+          return res.json({ linked: true });
+      } else {
+          return res.json({ linked: false });
+      }
+  } catch (error) {
+      console.error("Error checking Google link:", error);
+      return res.status(500).json({ linked: false, message: "Internal server error." });
+  }
+});
+
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
