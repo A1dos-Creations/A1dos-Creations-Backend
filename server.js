@@ -233,7 +233,7 @@ app.post('/update-password', async (req, res) => {
     sgMail.send(msg)
         .then(() => res.json({ success: true, message: "Verification code sent." }))
         .catch(error => {
-            console.error("SendGrid Error:", error.response ? error.response.body : error);
+            console.error("SendGrid Error:", error.response.body);
             res.status(500).json({ success: false, message: "Error sending email." });
         });
   } catch (error) {
@@ -389,7 +389,7 @@ app.post('/login-user', async (req, res) => {
                 <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
                 <div style="font-size:19px"></strong></div>
                 <div style="font-size:15px">${user.email}</div>
-                <div style="font-size:15px">Sign in location: ${await db('user_sessions').select({location})}</div>
+                <div style="font-size:15px">Sign in location: ${await db('user_sessions').select('location')}</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
@@ -398,8 +398,8 @@ app.post('/login-user', async (req, res) => {
                 </tbody>
                 </table>
                 </div>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, please change your password.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account?resetPsw=true" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Reset Password</a>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your account's linked devices.</div>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Welcome! Check out your account dashboard to review recent activity and upgrade your account!<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your accounts linked devices.</div>
                 </div>
                 </div>
                 </tr>
@@ -538,30 +538,15 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-app.post('/verify-token', async (req, res) => {
-  const { token } = req.body;
+app.post('/verify-token', (req, res) => {
+  const { token, email_notifications } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const session = await db('user_sessions')
-      .where({ session_token: token })
-      .first();
-    
-    if (!session) {
-      console.log("Session not found. Possible revocation.");
-      return res.status(401).json({ valid: false, error: "Session revoked or expired" });
-    }
-
-    res.json({ valid: true, user: decoded });
-  } catch (err) {
-    console.error("Token verification error:", err);
-    return res.status(401).json({ valid: false, error: "Invalid or expired token" });
-  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
+      res.json({ valid: true, user: decoded });
+  });
 });
-
-
 
 app.post('/unlink-google', async (req, res) => {
   try {
@@ -651,6 +636,7 @@ app.post('/update-notifications', async (req, res) => {
 }
   sgMail
     .send(msg)
+    .then(() => console.log(`Login email sent to ${email}`))
     .catch(error => console.error("SendGrid Error:", error.response.body));
   
       res.json({ success: true, message: "Notification preferences updated." });
@@ -790,18 +776,17 @@ app.post('/get-user-sessions', async (req, res) => {
     if (!token) {
       return res.status(400).json({ success: false, message: "Missing token." });
     }
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const result = await db.raw(`
+    const sessionsQuery = `
       SELECT DISTINCT ON (device_info, location) 
-      id, device_info, location, login_time, last_activity, session_token
+          id, device_info, location, login_time, last_activity, session_token
       FROM user_sessions
       WHERE user_id = ?
       ORDER BY device_info, location, login_time DESC;
-    `, [userId]);
-
+    `;
+    const result = await db.raw(sessionsQuery, [userId]);
     res.json({ success: true, sessions: result.rows });
   } catch (error) {
     console.error("Error retrieving user sessions:", error);
@@ -811,34 +796,17 @@ app.post('/get-user-sessions', async (req, res) => {
 
 
 app.post('/revoke-session', async (req, res) => {
-  const { token, sessionId } = req.body;
-
-  if (!token || !sessionId) {
-    return res.status(400).json({ success: false, message: "Missing token or session ID." });
-  }
-
   try {
+    const { token, sessionId } = req.body;
+    if (!token || !sessionId) {
+      return res.status(400).json({ success: false, message: "Missing token or sessionId." });
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
-
-    const session = await db('user_sessions')
-      .where({ id: sessionId, user_id: userId })
-      .first();
-
-    if (!session) {
-      return res.status(404).json({ success: false, message: "Session not found." });
-    }
-
-    await db('user_sessions')
-      .where({ id: sessionId })
-      .del();
-
-    console.log(`Session ${sessionId} revoked successfully.`);
-
-    res.json({ success: true, message: "Session revoked successfully." });
-
-  } catch (err) {
-    console.error("Error revoking session:", err);
+    await db('user_sessions').where({ id: sessionId, user_id: userId }).del();
+    res.json({ success: true, message: "Session revoked." });
+  } catch (error) {
+    console.error("Error revoking session:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
