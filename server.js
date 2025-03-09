@@ -43,7 +43,7 @@ app.server.on('upgrade', (request, socket, head) => {
       wss.emit('connection', ws, request);
   });
 });
-wss.on('connection', (ws, request) => {
+WebSocketServer.on('connection', (ws, request) => {
   ws.on('message', (message) => {
       try {
           const { token } = JSON.parse(message);
