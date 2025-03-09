@@ -44,7 +44,7 @@ const db = knex({
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const schoolData = {
   "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],
