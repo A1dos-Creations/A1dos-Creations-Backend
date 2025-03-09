@@ -372,17 +372,36 @@ app.post('/login-user', async (req, res) => {
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
-      subject: `🚀 New login for user: ${user.name} ✨`,
+      subject: `⚠️ New login for user: ${user.name}`,
       html: `
-      <h1 style="font-size:20px;font-family: sans-serif;">🚀 Welcome Back, ${user.name}! ✨</h1>
-      <br>
-      <p>Be sure to check out your account dashboard:</p>
-      <br>
-      <br>
-      <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
-      <br>
-      <br>
-      <p>Currently, linking Google accounts is unavailable due to verification in progress. We will email you when it's up! 🚀</p>
+                <tr height="32" style="height:32px"><td></td></tr>
+                <tr align="center">
+                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+                <tbody>
+                <tr>
+                <td width="8" style="width:8px"></td>
+                <td>
+                <br>
+                <br>
+                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
+                <div style="font-size:19px"></strong></div>
+                <div style="font-size:15px">${user.email}</div>
+                <table align="center" style="margin-top:8px">
+                <tbody><tr style="line-height:normal">
+                <td align="right" style="padding-right:8px">
+                </td>
+                </tr>
+                </tbody>
+                </table>
+                </div>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Welcome! Check out your account dashboard to review recent activity and upgrade your account!<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your accounts linked devices.</div>
+                </div>
+                </div>
+                </tr>
+                <tr height="32" style="height:32px"><td></td></tr>
       `,
       trackingSettings: {
         clickTracking: { enable: false, enableText: false },
@@ -443,6 +462,21 @@ app.get('/auth/google/callback', async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     console.log("Google OAuth tokens:", tokens);
+
+    console.log("User ID from state:", userId);
+    console.log("Google Tokens:", tokens);
+
+    let googleId = null;
+    if (tokens.id_token) {
+      try {
+        googleId = JSON.parse(Buffer.from(tokens.id_token.split('.')[1], 'base64').toString()).sub;
+        console.log("Extracted Google ID:", googleId);
+      } catch (decodeErr) {
+        console.error("Error decoding id_token:", decodeErr);
+      }
+    } else {
+      console.warn("No id_token received from Google");
+    }
     
     await db('users')
       .where({ id: userId })
@@ -450,9 +484,7 @@ app.get('/auth/google/callback', async (req, res) => {
         google_access_token: tokens.access_token,
         google_refresh_token: tokens.refresh_token,
         google_token_expiry: tokens.expiry_date,
-        google_id: tokens.id_token 
-          ? JSON.parse(Buffer.from(tokens.id_token.split('.')[1], 'base64').toString()).sub 
-          : null
+        google_id: googleId
       });
     
     res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
