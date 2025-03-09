@@ -389,6 +389,7 @@ app.post('/login-user', async (req, res) => {
                 <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
                 <div style="font-size:19px"></strong></div>
                 <div style="font-size:15px">${user.email}</div>
+                <div style="font-size:15px">Sign in location: ${user.location}</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
