@@ -830,11 +830,11 @@ app.post('/check-google-link', async (req, res) => {
   }
 });
 
+
 ////////////////////////////////////////////
 // NEW: Google Calendar Sync Endpoints
 ////////////////////////////////////////////
 
-// Helper: Get an authenticated Google Calendar client for a user
 async function getCalendarClient(user) {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -848,7 +848,6 @@ async function getCalendarClient(user) {
   return google.calendar({ version: 'v3', auth: oauth2Client });
 }
 
-// Endpoint: Create (or retrieve) the STL Synced Tasks calendar
 app.post('/create-calendar', async (req, res) => {
   try {
     const { token } = req.body;
@@ -926,7 +925,6 @@ app.post('/add-task-event', async (req, res) => {
   }
 });
 
-// Endpoint: Delete a task event from the STL Synced Tasks calendar
 app.post('/delete-task-event', async (req, res) => {
   try {
     const { token, eventId } = req.body;
