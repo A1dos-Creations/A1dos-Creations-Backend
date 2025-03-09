@@ -488,6 +488,48 @@ app.get('/auth/google/callback', async (req, res) => {
         google_token_expiry: tokens.expiry_date,
         google_id: googleId
       });
+      if(user.email_notifications){
+        const msg = {
+          to: email,
+          from: 'admin@a1dos-creations.com',
+          subject: `❗A Google Account Was Linked To Your A1dos Account.`,
+          html: `
+                      <tr height="32" style="height:32px"><td></td></tr>
+                      <tr align="center">
+                      <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+                      <tbody>
+                      <tr>
+                      <td width="8" style="width:8px"></td>
+                      <td>
+                      <br>
+                      <br>
+                      <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                      <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                      <div style="font-size:24px"><strong>Google Account Linked</strong></div>
+                      <div style="font-size:19px">To account: <strong>${user.name} (${email})</strong></div>
+                      <table align="center" style="margin-top:8px">
+                      <tbody><tr style="line-height:normal">
+                      <td align="right" style="padding-right:8px">
+                      </td>
+                      </tr>
+                      </tbody>
+                      </table>
+                      </div>
+                      <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, reset your password immediately and disconnect all Google accounts. Please review your account activity.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Review Activity</a>
+                      </div>
+                      </div>
+                      </tr>
+                      <tr height="32" style="height:32px"><td></td></tr>
+          `,
+          trackingSettings: {
+            clickTracking: { enable: false, enableText: false },
+        }
+        }
+        sgMail
+          .send(msg)
+          .then(() => console.log(`Login email sent to ${email}`))
+          .catch(error => console.error("SendGrid Error:", error.response.body));
+        }
     
     res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
   } catch (err) {
@@ -506,31 +548,6 @@ app.post('/verify-token', (req, res) => {
       if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
       res.json({ valid: true, user: decoded });
   });
-  if(user.email_notifications){
-  const msg = {
-    to: email,
-    from: 'admin@a1dos-creations.com',
-    subject: `❗A Google Account Was Linked To Your A1dos Account.`,
-    html: `
-    <h1 style="font-size:20px;font-family: sans-serif;">A Google account has been linked to your A1dos Account. Was this you?</h1>
-    <br>
-    <p>Check your dashboard to unlink any connected google accounts. There you can also disable these emails.</p>
-    <br>
-    <br>
-    <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
-    <br>
-    <br>
-    <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
-    `,
-    trackingSettings: {
-      clickTracking: { enable: false, enableText: false },
-  }
-  }
-  sgMail
-    .send(msg)
-    .then(() => console.log(`Login email sent to ${email}`))
-    .catch(error => console.error("SendGrid Error:", error.response.body));
-  }
 });
 
 app.post('/unlink-google', async (req, res) => {
@@ -582,31 +599,48 @@ app.post('/update-notifications', async (req, res) => {
         .where({ id: userId })
         .update({ email_notifications: emailNotifications });
 
-      if(user.email_notifications) {
-        const msg = {
-          to: user.email,
-          from: 'admin@a1dos-creations.com',
-          subject: `✅ Nofications Restored!`,
-          html: `
-          <h1 style="font-size:20px;font-family: sans-serif;">You will now recieve alerts for Google accounts being linked, succesful signins, and welcome messages.</h1>
-          <br>
-          <p>Check your dashboard to customize your email preferences.</p>
-          <br>
-          <br>
-          <a href="https://a1dos-creations.com/account/account" style="font-size:16px;font-family: sans-serif;justify-self:center;text-align:center;background-color:blue;padding: 5px 15px;text-decoration:none;color:white;border-style:none;border-radius:8px;">Account Dashboard</a>
-          <br>
-          <br>
-          <p>Currently, linking Google accounts is unavailable due to verification in progress. We will shoot you an email when it's up! 🚀</p>
-          `,
-          trackingSettings: {
-            clickTracking: { enable: false, enableText: false },
-        }
-        }
-        sgMail
-          .send(msg)
-          .then(() => console.log(`Login email sent to ${email}`))
-          .catch(error => console.error("SendGrid Error:", error.response.body));
-        }
+
+  const msg = {
+    to: email,
+    from: 'admin@a1dos-creations.com',
+    subject: `✅ Notifications Restored`,
+    html: `
+                <tr height="32" style="height:32px"><td></td></tr>
+                <tr align="center">
+                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+                <tbody>
+                <tr>
+                <td width="8" style="width:8px"></td>
+                <td>
+                <br>
+                <br>
+                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                <div style="font-size:24px"><strong>Notifications Restpred</strong></div>
+                <div style="font-size:19px">For account: <strong>${user.name} (${email})</strong></div>
+                <table align="center" style="margin-top:8px">
+                <tbody><tr style="line-height:normal">
+                <td align="right" style="padding-right:8px">
+                </td>
+                </tr>
+                </tbody>
+                </table>
+                </div>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>You will now receive updates on Google Accounts linking, STL changes (regarding your account), and password changes.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
+                </div>
+                </div>
+                </tr>
+                <tr height="32" style="height:32px"><td></td></tr>
+    `,
+    trackingSettings: {
+      clickTracking: { enable: false, enableText: false },
+  }
+}
+  sgMail
+    .send(msg)
+    .then(() => console.log(`Login email sent to ${email}`))
+    .catch(error => console.error("SendGrid Error:", error.response.body));
+  
       res.json({ success: true, message: "Notification preferences updated." });
   } catch (error) {
       console.error("Error updating notifications:", error);
