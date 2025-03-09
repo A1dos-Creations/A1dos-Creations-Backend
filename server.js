@@ -488,6 +488,8 @@ app.get('/auth/google/callback', async (req, res) => {
         google_token_expiry: tokens.expiry_date,
         google_id: googleId
       });
+      res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
+
       if(user.email_notifications){
         const msg = {
           to: email,
@@ -530,9 +532,7 @@ app.get('/auth/google/callback', async (req, res) => {
           .then(() => console.log(`Login email sent to ${email}`))
           .catch(error => console.error("SendGrid Error:", error.response.body));
         }
-    
-    res.redirect('https://a1dos-creations.com/account/account?googleLinked=true');
-  } catch (err) {
+      } catch (err) {
     console.error("Error exchanging code for token:", err);
     res.status(500).send("Authentication error");
   }
