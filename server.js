@@ -8,8 +8,8 @@ import cors from 'cors';
 import { google } from 'googleapis';
 import Stripe from 'stripe';
 
-import { WebSocketServer } from 'ws';
-const wss = new WebSocketServer({ noServer: true });
+import ws from 'ws';
+const { WebSocketServer } = ws;
 let activeSockets = new Map(); 
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
