@@ -811,17 +811,34 @@ app.post('/get-user-sessions', async (req, res) => {
 
 
 app.post('/revoke-session', async (req, res) => {
+  const { token, sessionId } = req.body;
+
+  if (!token || !sessionId) {
+    return res.status(400).json({ success: false, message: "Missing token or session ID." });
+  }
+
   try {
-    const { token, sessionId } = req.body;
-    if (!token || !sessionId) {
-      return res.status(400).json({ success: false, message: "Missing token or sessionId." });
-    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
-    await db('user_sessions').where({ id: sessionId, user_id: userId }).del();
-    res.json({ success: true, message: "Session revoked." });
-  } catch (error) {
-    console.error("Error revoking session:", error);
+
+    const session = await db('user_sessions')
+      .where({ id: sessionId, user_id: userId })
+      .first();
+
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found." });
+    }
+
+    await db('user_sessions')
+      .where({ id: sessionId })
+      .del();
+
+    console.log(`Session ${sessionId} revoked successfully.`);
+
+    res.json({ success: true, message: "Session revoked successfully." });
+
+  } catch (err) {
+    console.error("Error revoking session:", err);
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
