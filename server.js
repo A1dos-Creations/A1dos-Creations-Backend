@@ -789,7 +789,7 @@ app.post('/get-user-sessions', async (req, res) => {
     const userId = decoded.id;
 
     const sessionsQuery = `
-      SELECT DISTINCT ON ("device_info", "location") 
+      SELECT DISTINCT ON (device_info, location)
           id, device_info, location, login_time, last_activity, session_token
       FROM user_sessions
       WHERE user_id = ?
