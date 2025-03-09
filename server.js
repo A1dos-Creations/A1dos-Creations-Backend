@@ -5,9 +5,6 @@ const jwt = require('jsonwebtoken');
 const knex = require('knex');
 const cors = require('cors');
 const { google } = require('googleapis');
-const { tokens } = await oauth2Client.getToken(code);
-console.log("Received tokens from Google:", tokens);  // Debugging
-
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const sgMail = require('@sendgrid/mail')
@@ -465,7 +462,7 @@ app.get('/auth/google/callback', async (req, res) => {
   
   try {
     const { tokens } = await oauth2Client.getToken(code);
-    console.log("Google OAuth tokens:", tokens);
+    console.log("Received tokens from Google:", tokens);
 
     console.log("User ID from state:", userId);
     console.log("Google Tokens:", tokens);

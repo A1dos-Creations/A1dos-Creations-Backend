@@ -4,7 +4,7 @@
   "description": "Login API for STL and A1 Main website.",
   "license": "ISC",
   "author": "A1dos-Creations 2025",
-  "type": "commonjs",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "nodemon server.js"
