@@ -538,15 +538,25 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-app.post('/verify-token', (req, res) => {
-  const { token, email_notifications } = req.body;
+app.post('/verify-token', async (req, res) => {
+  const { token } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
-      res.json({ valid: true, user: decoded });
-  });
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const session = await db('user_sessions').where({ session_token: token }).first();
+    if (!session) {
+      return res.status(401).json({ valid: false, error: "Session revoked" });
+    }
+    
+    res.json({ valid: true, user: decoded });
+  } catch (err) {
+    console.error("Token verification error:", err);
+    return res.status(401).json({ valid: false, error: "Invalid token" });
+  }
 });
+
 
 app.post('/unlink-google', async (req, res) => {
   try {
