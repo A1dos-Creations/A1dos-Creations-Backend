@@ -422,10 +422,12 @@ app.get('/auth/google', (req, res) => {
 
 app.get('/auth/google/callback', async (req, res) => {
   const code = req.query.code;
-  const userId = req.query.state;
+  const userId = req.query.state; 
+
   if (!code) {
     return res.status(400).send("No code provided.");
   }
+  
   if (!userId) {
     console.error("UserId not provided in state parameter. Cannot link Google account.");
     return res.redirect('https://a1dos-creations.com/account/account?googleLinked=false');
@@ -434,7 +436,7 @@ app.get('/auth/google/callback', async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     console.log("Google OAuth tokens:", tokens);
-    
+  
     await db('users')
       .where({ id: userId })
       .update({ 
@@ -452,6 +454,7 @@ app.get('/auth/google/callback', async (req, res) => {
     res.status(500).send("Authentication error");
   }
 });
+
 
 app.post('/verify-token', (req, res) => {
   const { token, email_notifications } = req.body;
