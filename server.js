@@ -233,7 +233,7 @@ app.post('/update-password', async (req, res) => {
     sgMail.send(msg)
         .then(() => res.json({ success: true, message: "Verification code sent." }))
         .catch(error => {
-            console.error("SendGrid Error:", error.response.body);
+            console.error("SendGrid Error:", error.response ? error.response.body : error);
             res.status(500).json({ success: false, message: "Error sending email." });
         });
   } catch (error) {
@@ -789,7 +789,7 @@ app.post('/get-user-sessions', async (req, res) => {
     const userId = decoded.id;
 
     const sessionsQuery = `
-      SELECT DISTINCT ON (device_info, location) 
+      SELECT DISTINCT ON ("device_info", "location") 
           id, device_info, location, login_time, last_activity, session_token
       FROM user_sessions
       WHERE user_id = ?
