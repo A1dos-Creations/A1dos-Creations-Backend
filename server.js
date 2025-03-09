@@ -7,6 +7,11 @@ import knex from 'knex';
 import cors from 'cors';
 import { google } from 'googleapis';
 import Stripe from 'stripe';
+
+import { WebSocketServer } from 'ws';
+const wss = new WebSocketServer({ noServer: true });
+let activeSockets = new Map(); 
+
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
@@ -33,6 +38,32 @@ app.use(cors({
 }));
 app.options('*', cors());
 app.use(express.json());
+app.server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+  });
+});
+wss.on('connection', (ws, request) => {
+  ws.on('message', (message) => {
+      try {
+          const { token } = JSON.parse(message);
+          if (token) {
+              activeSockets.set(token, ws);
+          }
+      } catch (error) {
+          console.error("Invalid WebSocket message:", error);
+      }
+  });
+
+  ws.on('close', () => {
+      activeSockets.forEach((value, key) => {
+          if (value === ws) {
+              activeSockets.delete(key);
+          }
+      });
+  });
+});
+
 
 const db = knex({
   client: 'pg',
@@ -389,7 +420,7 @@ app.post('/login-user', async (req, res) => {
                 <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
                 <div style="font-size:19px"></strong></div>
                 <div style="font-size:15px">${user.email}</div>
-                <div style="font-size:15px">Sign in location: ${await db('user_sessions').select('location')}</div>
+                <div style="font-size:15px">Sign in location: ${location}</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
@@ -796,20 +827,44 @@ app.post('/get-user-sessions', async (req, res) => {
 
 
 app.post('/revoke-session', async (req, res) => {
+  const { token, sessionId } = req.body;
+
+  if (!token || !sessionId) {
+      return res.status(400).json({ success: false, message: "Missing token or session ID." });
+  }
+
   try {
-    const { token, sessionId } = req.body;
-    if (!token || !sessionId) {
-      return res.status(400).json({ success: false, message: "Missing token or sessionId." });
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
-    await db('user_sessions').where({ id: sessionId, user_id: userId }).del();
-    res.json({ success: true, message: "Session revoked." });
-  } catch (error) {
-    console.error("Error revoking session:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+
+      const session = await db('user_sessions')
+          .where({ id: sessionId, user_id: userId })
+          .first();
+
+      if (!session) {
+          return res.status(404).json({ success: false, message: "Session not found." });
+      }
+
+      await db('user_sessions')
+          .where({ id: sessionId })
+          .del();
+
+      console.log(`Session ${sessionId} revoked successfully.`);
+
+      if (activeSockets.has(session.session_token)) {
+          const ws = activeSockets.get(session.session_token);
+          ws.send(JSON.stringify({ action: "logout" }));
+          activeSockets.delete(session.session_token);
+      }
+
+      res.json({ success: true, message: "Session revoked successfully." });
+
+  } catch (err) {
+      console.error("Error revoking session:", err);
+      res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
+
 
 // ----- Check Google Link Status Endpoint -----
 app.post('/check-google-link', async (req, res) => {
