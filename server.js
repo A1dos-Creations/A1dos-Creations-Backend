@@ -785,18 +785,18 @@ app.post('/get-user-sessions', async (req, res) => {
     if (!token) {
       return res.status(400).json({ success: false, message: "Missing token." });
     }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const sessions = await db.raw(`
+    const result = await db.raw(`
       SELECT DISTINCT ON (device_info, location) 
       id, device_info, location, login_time, last_activity, session_token
       FROM user_sessions
       WHERE user_id = ?
       ORDER BY device_info, location, login_time DESC;
-      `, 
-    );  
-    const result = await db.raw(sessionsQuery, [userId]);
+    `, [userId]);
+
     res.json({ success: true, sessions: result.rows });
   } catch (error) {
     console.error("Error retrieving user sessions:", error);
