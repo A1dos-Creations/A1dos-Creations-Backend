@@ -23,7 +23,8 @@
     "nodemailer": "^6.10.0",
     "nodemon": "^3.1.9",
     "pg": "^8.13.3",
-    "stripe": "^17.7.0"
+    "stripe": "^17.7.0",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "javascript-obfuscator": "^4.1.1"
