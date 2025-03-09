@@ -279,8 +279,8 @@ app.post('/register-user', async (req, res) => {
                 <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
                 <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
                 <div style="font-size:24px"><strong>Welcome To A1dos Creations!</strong></div>
-                <div style="font-size:19px">Welcome, <strong>${user.name}!</strong></div>
-                <div style="font-size:15px">${user.email}</div>
+                <div style="font-size:19px">Welcome, <strong>${name}!</strong></div>
+                <div style="font-size:15px">${email}</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
@@ -389,7 +389,7 @@ app.post('/login-user', async (req, res) => {
                 <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
                 <div style="font-size:19px"></strong></div>
                 <div style="font-size:15px">${user.email}</div>
-                <div style="font-size:15px">Sign in location: ${location}</div>
+                <div style="font-size:15px">Sign in location: ${ipAddress}</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
