@@ -389,7 +389,7 @@ app.post('/login-user', async (req, res) => {
                 <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
                 <div style="font-size:19px"></strong></div>
                 <div style="font-size:15px">${user.email}</div>
-                <div style="font-size:15px">Sign in location: ${user.locationData}</div>
+                <div style="font-size:15px">Sign in location: ${await db('user_sessions').select({location})}</div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
@@ -398,8 +398,8 @@ app.post('/login-user', async (req, res) => {
                 </tbody>
                 </table>
                 </div>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Welcome! Check out your account dashboard to review recent activity and upgrade your account!<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your accounts linked devices.</div>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, please change your password.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account?resetPsw=true" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Reset Password</a>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your account's linked devices.</div>
                 </div>
                 </div>
                 </tr>
@@ -646,7 +646,6 @@ app.post('/update-notifications', async (req, res) => {
 }
   sgMail
     .send(msg)
-    .then(() => console.log(`Login email sent to ${email}`))
     .catch(error => console.error("SendGrid Error:", error.response.body));
   
       res.json({ success: true, message: "Notification preferences updated." });
