@@ -1,14 +1,14 @@
 import dotenv from 'dotenv';
 dotenv.config();
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const knex = require('knex');
-const cors = require('cors');
-const { google } = require('googleapis');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-
-const sgMail = require('@sendgrid/mail')
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import knex from 'knex';
+import cors from 'cors';
+import { google } from 'googleapis';
+import Stripe from 'stripe';
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
 const allowedOrigins = [
