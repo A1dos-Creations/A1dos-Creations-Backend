@@ -436,7 +436,7 @@ app.get('/auth/google/callback', async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     console.log("Google OAuth tokens:", tokens);
-  
+    
     await db('users')
       .where({ id: userId })
       .update({ 
@@ -454,6 +454,7 @@ app.get('/auth/google/callback', async (req, res) => {
     res.status(500).send("Authentication error");
   }
 });
+
 
 
 app.post('/verify-token', (req, res) => {
