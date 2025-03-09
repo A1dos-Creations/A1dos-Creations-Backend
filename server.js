@@ -794,7 +794,8 @@ app.post('/get-user-sessions', async (req, res) => {
       FROM user_sessions
       WHERE user_id = ?
       ORDER BY device_info, location, login_time DESC;
-    `, [userId]);    
+      `, 
+    );  
     const result = await db.raw(sessionsQuery, [userId]);
     res.json({ success: true, sessions: result.rows });
   } catch (error) {
