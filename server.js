@@ -538,8 +538,6 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-
-
 app.post('/verify-token', (req, res) => {
   const { token, email_notifications } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
@@ -829,6 +827,136 @@ app.post('/check-google-link', async (req, res) => {
   } catch (error) {
       console.error("Error checking Google link:", error);
       return res.status(500).json({ linked: false, message: "Internal server error." });
+  }
+});
+
+////////////////////////////////////////////
+// NEW: Google Calendar Sync Endpoints
+////////////////////////////////////////////
+
+// Helper: Get an authenticated Google Calendar client for a user
+async function getCalendarClient(user) {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    'https://a1dos-login.onrender.com/auth/google/callback'
+  );
+  oauth2Client.setCredentials({
+    access_token: user.google_access_token,
+    refresh_token: user.google_refresh_token
+  });
+  return google.calendar({ version: 'v3', auth: oauth2Client });
+}
+
+// Endpoint: Create (or retrieve) the STL Synced Tasks calendar
+app.post('/create-calendar', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ success: false, message: "Missing token." });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+    const user = await db('users').where({ id: userId }).first();
+    if (!user || !user.google_access_token) {
+      return res.status(400).json({ success: false, message: "Google account not linked." });
+    }
+    const calendarClient = await getCalendarClient(user);
+    const calendarList = await calendarClient.calendarList.list();
+    const calendars = calendarList.data.items;
+    let syncedCalendar = calendars.find(cal => cal.summary === "🔄️ STL Synced Tasks");
+    if (!syncedCalendar) {
+      const createdCal = await calendarClient.calendars.insert({
+        requestBody: {
+          summary: "🔄️ STL Synced Tasks",
+          timeZone: "America/Los_Angeles" 
+        }
+      });
+      syncedCalendar = createdCal.data;
+    }
+    res.json({ success: true, calendarId: syncedCalendar.id });
+  } catch (error) {
+    console.error("Error in /create-calendar:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+app.post('/add-task-event', async (req, res) => {
+  try {
+    const { token, taskTitle, taskDueDate, taskDescription } = req.body;
+    if (!token || !taskTitle || !taskDueDate) {
+      return res.status(400).json({ success: false, message: "Missing required fields." });
+    }
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+    const user = await db('users').where({ id: userId }).first();
+    if (!user || !user.google_access_token) {
+      return res.status(400).json({ success: false, message: "Google account not linked." });
+    }
+    const calendarClient = await getCalendarClient(user);
+    const calRes = await fetch('https://a1dos-login.onrender.com/create-calendar', {  
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const calData = await calRes.json();
+    if (!calData.success) {
+      return res.status(400).json({ success: false, message: "Could not create/retrieve calendar." });
+    }
+    const calendarId = calData.calendarId;
+    
+    const eventRes = await calendarClient.events.insert({
+      calendarId,
+      requestBody: {
+        summary: taskTitle,
+        description: taskDescription || "",
+        start: {
+          dateTime: new Date(taskDueDate).toISOString(),
+          timeZone: "America/Los_Angeles"
+        },
+        end: {
+          dateTime: new Date(new Date(taskDueDate).getTime() + 60 * 60 * 1000).toISOString(), // 1-hour event
+          timeZone: "America/Los_Angeles"
+        }
+      }
+    });
+    const event = eventRes.data;
+    res.json({ success: true, eventId: event.id });
+  } catch (error) {
+    console.error("Error in /add-task-event:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+// Endpoint: Delete a task event from the STL Synced Tasks calendar
+app.post('/delete-task-event', async (req, res) => {
+  try {
+    const { token, eventId } = req.body;
+    if (!token || !eventId) {
+      return res.status(400).json({ success: false, message: "Missing required fields." });
+    }
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+    const user = await db('users').where({ id: userId }).first();
+    if (!user || !user.google_access_token) {
+      return res.status(400).json({ success: false, message: "Google account not linked." });
+    }
+    const calendarClient = await getCalendarClient(user);
+    
+    const calendarList = await calendarClient.calendarList.list();
+    const calendars = calendarList.data.items;
+    const syncedCalendar = calendars.find(cal => cal.summary === "🔄️ STL Synced Tasks");
+    if (!syncedCalendar) {
+      return res.status(400).json({ success: false, message: "Synced calendar not found." });
+    }
+    
+    await calendarClient.events.delete({
+      calendarId: syncedCalendar.id,
+      eventId: eventId
+    });
+    
+    res.json({ success: true, message: "Event deleted successfully." });
+  } catch (error) {
+    console.error("Error in /delete-task-event:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
 
