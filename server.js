@@ -39,7 +39,7 @@ app.use(express.json());
 const server = http.createServer(app);
 
 const wss = new WebSocketServer({ noServer: true });
-const activeSockets = new Map(); 
+const activeSockets = new Map();
 
 server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
