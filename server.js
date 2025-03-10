@@ -208,7 +208,6 @@ app.post("/send-phone-code", async (req, res) => {
       const userId = decoded.id;
 
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
-      verificationCodes.set(userId, verificationCode);
 
       await client.messages.create({
           body: `Your verification code is: ${verificationCode}`,
