@@ -259,13 +259,14 @@ app.post('/register-user', async (req, res) => {
         email_notifications: true
       })
       .returning(['id', 'name', 'email', 'email_notifications', 'created_at']);
-
+    
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '2d' });
-
+    
+    // Send welcome email
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
-      subject: `🚀 Welcome to A1dos Creations, ${name}! ✨`,
+      subject: `🚀 Welcome to A1dos Creations, ${newUser.name}! ✨`,
       html: `
                 <tr height="32" style="height:32px"><td></td></tr>
                 <tr align="center">
@@ -295,16 +296,13 @@ app.post('/register-user', async (req, res) => {
                 </div>
                 </tr>
                 <tr height="32" style="height:32px"><td></td></tr>
-      `,
-      trackingSettings: {
-        clickTracking: { enable: false, enableText: false }
-      }
+      `
     };
 
     sgMail.send(msg)
       .then(() => console.log(`Welcome email sent to ${email}`))
       .catch(error => console.error("SendGrid Error:", error.response ? error.response.body : error));
-
+    
     res.json({ 
       user: { 
         name: newUser.name, 
@@ -316,9 +314,13 @@ app.post('/register-user', async (req, res) => {
     });
   } catch (err) {
     console.error('Registration error:', err);
+    if (err.code === '23505') {
+      return res.status(400).json('A user with that email already exists.');
+    }
     return res.status(500).json('Error registering user');
   }
 });
+
 
 
 app.post('/login-user', async (req, res) => {
