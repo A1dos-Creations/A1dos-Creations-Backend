@@ -210,7 +210,7 @@ app.post("/send-phone-code", async (req, res) => {
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
 
       await client.messages.create({
-          body: `Your verification code is: ${verificationCode}`,
+          body: `Your verification code is: ${verificationCode}. DO NOT SHARE THIS CODE. WE WILL NEVER ASK FOR THESE CODES.`,
           from: process.env.TWILIO_PHONE_NUMBER,
           to: phone
       });
