@@ -711,8 +711,8 @@ app.post('/create-checkout-session', async (req, res) => {
         quantity: 1
       }],
       mode: 'payment',
-      success_url: 'https://a1dos-creations.com/success',
-      cancel_url: 'https://a1dos-creations.com/cancel',
+      success_url: 'https://a1dos-creations.com/account/chk/success',
+      cancel_url: 'https://a1dos-creations.com/account/chk/cancel',
       metadata: {
         user_id: user_id
       }
