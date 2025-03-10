@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 import knex from 'knex';
 import cors from 'cors';
 import { google } from 'googleapis';
+import { WebSocketServer } from 'ws';
+import http from 'http';
 import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
@@ -33,6 +35,36 @@ app.use(cors({
 }));
 app.options('*', cors());
 app.use(express.json());
+
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ noServer: true });
+const activeSockets = new Map(); 
+
+server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request);
+  });
+});
+wss.on('connection', (ws, request) => {
+  ws.on('message', (message) => {
+    try {
+      const { token } = JSON.parse(message);
+      if (token) {
+        activeSockets.set(token, ws);
+      }
+    } catch (error) {
+      console.error("WebSocket message error:", error);
+    }
+  });
+  ws.on('close', () => {
+    for (const [token, sock] of activeSockets.entries()) {
+      if (sock === ws) {
+        activeSockets.delete(token);
+      }
+    }
+  });
+});
 
 const db = knex({
   client: 'pg',
@@ -242,7 +274,6 @@ app.post('/update-password', async (req, res) => {
   }
 });
 
-
 // --- User Authentication Endpoints ---
 app.post('/register-user', async (req, res) => {
   const { name, email, password } = req.body;
@@ -262,7 +293,6 @@ app.post('/register-user', async (req, res) => {
     
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '2d' });
     
-    // Send welcome email
     const msg = {
       to: email,
       from: 'admin@a1dos-creations.com',
@@ -540,14 +570,21 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-app.post('/verify-token', (req, res) => {
-  const { token, email_notifications } = req.body;
+app.post('/verify-token', async (req, res) => {
+  const { token } = req.body;
   if (!token) return res.status(400).json({ valid: false, error: "No token provided" });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err) return res.status(401).json({ valid: false, error: "Invalid token" });
-      res.json({ valid: true, user: decoded });
-  });
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const session = await db('user_sessions').where({ session_token: token }).first();
+    if (!session) {
+      return res.status(401).json({ valid: false, error: "Session revoked" });
+    }
+    res.json({ valid: true, user: decoded });
+  } catch (err) {
+    console.error("Token verification error:", err);
+    return res.status(401).json({ valid: false, error: "Invalid token" });
+  }
 });
 
 app.post('/unlink-google', async (req, res) => {
@@ -796,17 +833,30 @@ app.post('/get-user-sessions', async (req, res) => {
   }
 });
 
-
 app.post('/revoke-session', async (req, res) => {
   try {
     const { token, sessionId } = req.body;
     if (!token || !sessionId) {
       return res.status(400).json({ success: false, message: "Missing token or sessionId." });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.id;
-    await db('user_sessions').where({ id: sessionId, user_id: userId }).del();
-    res.json({ success: true, message: "Session revoked." });
+    const session = await db('user_sessions')
+      .where({ id: sessionId, user_id: userId })
+      .first();
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found." });
+    }
+    await db('user_sessions').where({ id: sessionId }).del();
+    console.log(`Session ${sessionId} revoked successfully.`);
+
+    if (activeSockets.has(session.session_token)) {
+      const ws = activeSockets.get(session.session_token);
+      ws.send(JSON.stringify({ action: "logout" }));
+      activeSockets.delete(session.session_token);
+    }
+
+    res.json({ success: true, message: "Session revoked successfully." });
   } catch (error) {
     console.error("Error revoking session:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
