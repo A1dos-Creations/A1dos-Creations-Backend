@@ -13,9 +13,11 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 import twilio from 'twilio';
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-console.log("TWILIO_SID:", process.env.TWILIO_SID);
-console.log("TWILIO_AUTH_TOKEN:", process.env.TWILIO_AUTH_TOKEN);
+const sid = process.env.TWILIO_SID ? process.env.TWILIO_SID.trim() : "";
+const authToken = process.env.TWILIO_AUTH_TOKEN ? process.env.TWILIO_AUTH_TOKEN.trim() : "";
+console.log("Twilio SID:", sid);
+console.log("Twilio Auth Token:", authToken);
+const client = twilio(sid, authToken);
 
 const verificationCodes = new Map(); 
 
@@ -212,7 +214,6 @@ app.post("/send-phone-code", async (req, res) => {
   try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userId = decoded.id;
-
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
       verificationCodes.set(userId, verificationCode);
 
