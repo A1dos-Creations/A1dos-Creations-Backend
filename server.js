@@ -11,7 +11,11 @@ import { WebSocketServer } from 'ws';
 import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
-sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const twilio = require('twilio');
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+const verificationCodes = new Map(); 
 
 const allowedOrigins = [
   'https://a1dos-creations.com',
@@ -208,9 +212,10 @@ app.post("/send-phone-code", async (req, res) => {
       const userId = decoded.id;
 
       const verificationCode = Math.floor(100000 + Math.random() * 900000);
+      verificationCodes.set(userId, verificationCode);
 
       await client.messages.create({
-          body: `Your verification code is: ${verificationCode}. DO NOT SHARE THIS CODE. WE WILL NEVER ASK FOR THESE CODES.`,
+          body: `Your verification code is: ${verificationCode}. Don't share this code. We will never request a code.`,
           from: process.env.TWILIO_PHONE_NUMBER,
           to: phone
       });
