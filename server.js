@@ -687,21 +687,26 @@ app.post('/update-notifications', async (req, res) => {
 
 // --- Stripe Integration Endpoint with user metadata ---
 app.post('/create-checkout-session', async (req, res) => {
-  const { token } = req.body; 
-  if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id' });
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ error: 'Missing token' });
   }
-  
   try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user_id = decoded.id;
+    if (!user_id) {
+      return res.status(400).json({ error: 'Missing user_id' });
+    }
+    
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: 'usd',
           product_data: {
-            name: 'Premium Feature'
+            name: 'Premium (STL+ Product Key)'
           },
-          unit_amount: 200,
+          unit_amount: 200, // amount in cents
         },
         quantity: 1
       }],
@@ -709,16 +714,18 @@ app.post('/create-checkout-session', async (req, res) => {
       success_url: 'https://a1dos-creations.com/success',
       cancel_url: 'https://a1dos-creations.com/cancel',
       metadata: {
-        user_id
+        user_id: user_id
       }
     });
+    
     console.log("Stripe Checkout session created:", session.id);
-    res.json({ id: session.id });
+    return res.json({ id: session.id });
   } catch (error) {
     console.error("Error creating Stripe Checkout session:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; 
 
