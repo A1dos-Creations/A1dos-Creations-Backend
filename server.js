@@ -6,8 +6,8 @@ import jwt from 'jsonwebtoken';
 import knex from 'knex';
 import cors from 'cors';
 import { google } from 'googleapis';
-import { WebSocketServer } from 'ws';
 import http from 'http';
+import { WebSocketServer } from 'ws';
 import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
@@ -37,7 +37,6 @@ app.options('*', cors());
 app.use(express.json());
 
 const server = http.createServer(app);
-
 const wss = new WebSocketServer({ noServer: true });
 const activeSockets = new Map();
 
