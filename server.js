@@ -199,6 +199,54 @@ app.post('/send-verification-code', async (req, res) => {
     }
 });
 
+app.post("/send-phone-code", async (req, res) => {
+  const { token, phone } = req.body;
+  if (!token || !phone) return res.status(400).json({ success: false, message: "Missing token or phone" });
+
+  try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+
+      const verificationCode = Math.floor(100000 + Math.random() * 900000);
+      verificationCodes.set(userId, verificationCode);
+
+      await client.messages.create({
+          body: `Your verification code is: ${verificationCode}`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: phone
+      });
+
+      await db("users").where({ id: userId }).update({ phone_number: phone });
+      res.json({ success: true, message: "Verification code sent" });
+  } catch (err) {
+      console.error("Error sending SMS:", err);
+      res.status(500).json({ success: false, message: "Error sending code" });
+  }
+});
+app.post("/verify-phone-code", async (req, res) => {
+  const { token, code } = req.body;
+  if (!token || !code) return res.status(400).json({ success: false, message: "Missing token or code" });
+
+  try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.id;
+      const expectedCode = verificationCodes.get(userId);
+
+      if (parseInt(code) !== expectedCode) {
+          return res.status(400).json({ success: false, message: "Invalid code" });
+      }
+
+      await db("users").where({ id: userId }).update({ phone_verified: true });
+      verificationCodes.delete(userId);
+
+      res.json({ success: true, message: "Phone verified" });
+  } catch (err) {
+      console.error("Verification error:", err);
+      res.status(500).json({ success: false, message: "Error verifying phone" });
+  }
+});
+
+
 app.post('/update-password', async (req, res) => {
   const { email, verificationCode, newPassword } = req.body;
   try {
