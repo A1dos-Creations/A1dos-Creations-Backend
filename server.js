@@ -12,14 +12,22 @@ import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-import twilio from 'twilio';
-const sid = process.env.TWILIO_SID ? process.env.TWILIO_SID.trim() : "";
-const authToken = process.env.TWILIO_AUTH_TOKEN ? process.env.TWILIO_AUTH_TOKEN.trim() : "";
-console.log("Twilio SID:", sid);
-console.log("Twilio Auth Token:", authToken);
-const client = twilio(sid, authToken);
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 
-const verificationCodes = new Map(); 
+const firebaseConfig = {
+  apiKey: "AIzaSyDN1E5nYSj0aJQ66EEFf8NGH3lkDy64Cf8",
+  authDomain: "a1dos-creations-25.firebaseapp.com",
+  projectId: "a1dos-creations-25",
+  storageBucket: "a1dos-creations-25.firebasestorage.app",
+  messagingSenderId: "874801347017",
+  appId: "1:874801347017:web:8c63552a4bde3c519a9018",
+  measurementId: "G-H3HVX1034N"
+};
+
+// Initialize Firebase
+const appF = initializeApp(firebaseConfig);
+const analytics = getAnalytics(appF);
 
 const allowedOrigins = [
   'https://a1dos-creations.com',
@@ -132,6 +140,112 @@ app.post('/get-user-school', async (req, res) => {
   }
 });
 
+const emailVerificationCodes = new Map(); // Store email verification codes temporarily
+
+app.post("/request-email-change", async (req, res) => {
+  const { token, password, newEmail } = req.body;
+  if (!token || !password || !newEmail) {
+    return res.status(400).json({ success: false, message: "Missing fields." });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await db("users").where({ id: decoded.id }).first();
+
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ success: false, message: "Incorrect password." });
+    }
+
+    const verificationCode = crypto.randomInt(100000, 999999).toString();
+    emailVerificationCodes.set(newEmail, { code: verificationCode, userId: user.id });
+
+    const msg = {
+      to: newEmail,
+      from: 'admin@a1dos-creations.com',
+      subject: `Change Email for ${user.name}`,
+      html: `
+      <div style="justify-items:center;">
+          <tr height="32" style="height:32px">
+          <td></td>
+          </tr>
+          <tr align="center">
+            <div>
+              <div>
+              </div>
+            </div>
+            <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+            <tbody>
+            <tr>
+            <td width="8" style="width:8px"></td>
+            <td>
+              <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                <div style="font-size:24px"><strong>Email Change Verification Request</strong></div>
+                <div style="font-size:24px">For user: <strong>${user.name}</strong></div>
+                <div style="font-size:24px">Your verification code is: <strong>${verificationCode}</strong></div>
+                <table align="center" style="margin-top:8px">
+                <tbody><tr style="line-height:normal">
+                <td align="right" style="padding-right:8px">
+                </td>
+                </tr>
+                </tbody>
+                </table>
+              </div>
+            <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, ignore this email. We will never ask for your password or verification code.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Check activity</a>
+            </div>
+            </div>
+          </tr>
+          <tr height="32" style="height:32px">
+            <td></td>
+          </tr>
+          </div>
+          `,
+          trackingSettings: {
+            clickTracking: { enable: false, enableText: false }
+          }
+  };
+  sgMail.send(msg)
+      .then(() => res.json({ success: true, message: "Verification code sent." }))
+      .catch(error => {
+          console.error("SendGrid Error:", error.response.body);
+          res.status(500).json({ success: false, message: "Error sending email." });
+      });
+
+    res.json({ success: true, message: "Verification code sent to new email." });
+
+  } catch (err) {
+    console.error("Error requesting email change:", err);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+app.post("/verify-email-change", async (req, res) => {
+  const { newEmail, code } = req.body;
+
+  if (!newEmail || !code) {
+    return res.status(400).json({ success: false, message: "Missing fields." });
+  }
+
+  const storedData = emailVerificationCodes.get(newEmail);
+  if (!storedData || storedData.code !== code) {
+    return res.status(400).json({ success: false, message: "Invalid or expired code." });
+  }
+
+  try {
+    await db("users").where({ id: storedData.userId }).update({ email: newEmail });
+    emailVerificationCodes.delete(newEmail);
+
+    res.json({ success: true, message: "Email updated successfully." });
+
+  } catch (err) {
+    console.error("Error updating email:", err);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+
 app.post('/send-verification-code', async (req, res) => {
     const { email } = req.body;
     try {
@@ -205,52 +319,6 @@ app.post('/send-verification-code', async (req, res) => {
         console.error("Error sending verification code:", error);
         res.status(500).json({ success: false, message: "Internal server error." });
     }
-});
-
-app.post("/send-phone-code", async (req, res) => {
-  const { token, phone } = req.body;
-  if (!token || !phone) return res.status(400).json({ success: false, message: "Missing token or phone" });
-
-  try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const userId = decoded.id;
-      const verificationCode = Math.floor(100000 + Math.random() * 900000);
-      verificationCodes.set(userId, verificationCode);
-
-      await client.messages.create({
-          body: `Your verification code is: ${verificationCode}. Don't share this code. We will never request a code.`,
-          from: process.env.TWILIO_PHONE_NUMBER,
-          to: phone
-      });
-
-      await db("users").where({ id: userId }).update({ phone_number: phone });
-      res.json({ success: true, message: "Verification code sent" });
-  } catch (err) {
-      console.error("Error sending SMS:", err);
-      res.status(500).json({ success: false, message: "Error sending code" });
-  }
-});
-app.post("/verify-phone-code", async (req, res) => {
-  const { token, code } = req.body;
-  if (!token || !code) return res.status(400).json({ success: false, message: "Missing token or code" });
-
-  try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const userId = decoded.id;
-      const expectedCode = verificationCodes.get(userId);
-
-      if (parseInt(code) !== expectedCode) {
-          return res.status(400).json({ success: false, message: "Invalid code" });
-      }
-
-      await db("users").where({ id: userId }).update({ phone_verified: true });
-      verificationCodes.delete(userId);
-
-      res.json({ success: true, message: "Phone verified" });
-  } catch (err) {
-      console.error("Verification error:", err);
-      res.status(500).json({ success: false, message: "Error verifying phone" });
-  }
 });
 
 
