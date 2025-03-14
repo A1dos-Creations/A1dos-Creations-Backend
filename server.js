@@ -12,22 +12,13 @@ import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-const session = require('express-session');
-const classesRouter = require('./routes/classes');
-const assignmentsRouter = require('./routes/assignments');
-const syncRouter = require('./routes/sync');
+import express from 'express';
+import session from 'express-session';
+import classesRouter from './routes/classes.js';
+import assignmentsRouter from './routes/assignments.js';
+import syncRouter from './routes/sync.js';
+
 console.log(crypto.randomBytes(32).toString('hex'));
-
-
-app.use(session({
-  secret: 'your-secret-key',
-  resave: false,
-  saveUninitialized: true
-}));
-
-app.use('/api', classesRouter);
-app.use('/api', assignmentsRouter);
-app.use('/api', syncRouter);
 
 const allowedOrigins = [
   'https://a1dos-creations.com',
@@ -51,6 +42,16 @@ app.use(cors({
 }));
 app.options('*', cors());
 app.use(express.json());
+
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: true
+}));
+
+app.use('/api', classesRouter);
+app.use('/api', assignmentsRouter);
+app.use('/api', syncRouter);
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
