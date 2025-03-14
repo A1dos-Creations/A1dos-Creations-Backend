@@ -12,7 +12,6 @@ import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-import express from 'express';
 import session from 'express-session';
 import classesRouter from './routes/classes.js';
 import assignmentsRouter from './routes/assignments.js';
