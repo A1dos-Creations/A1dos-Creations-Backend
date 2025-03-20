@@ -323,30 +323,36 @@ app.post('/send-verification-code', async (req, res) => {
 });
 
 app.post('/update-password', async (req, res) => {
-  const { email, verificationCode, newPassword } = req.body;
   try {
-      const user = await db('users').where({ email }).first();
-      if (!user) {
-          return res.status(404).json({ success: false, message: "User not found." });
-      }
+    const { email, verificationCode, newPassword } = req.body;
 
-      const storedCode = await db('verification_codes')
-          .where({ user_id: user.id, code: verificationCode })
-          .where('expiry', '>', new Date()) 
-          .orderBy('created_at', 'desc')
-          .first();
+    const user = await db('users').where({ email }).first();
+    if (!user) {
+        return res.status(404).json({ success: false, message: "User not found." });
+    }
 
-      if (!storedCode) {
-          return res.status(400).json({ success: false, message: "Invalid or expired verification code." });
-      }
+    const validCode = await db('verification_codes')
+        .where({ user_id: user.id, code: verificationCode })
+        .andWhere('expiry', '>', new Date())
+        .first();
 
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+    if (!validCode) {
+        return res.status(400).json({ success: false, message: "Invalid or expired verification code." });
+    }
 
-      await db('users').where({ id: user.id }).update({ password: hashedPassword });
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db('users').where({ id: user.id }).update({ password: hashedPassword });
 
-      await db('verification_codes').where({ user_id: user.id }).del();
+    await db('verification_codes').where({ user_id: user.id }).del();
 
-      res.json({ success: true, message: "Password updated successfully." });
+    const newToken = jwt.sign(
+        { id: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+    );
+
+    res.json({ success: true, message: "Password updated successfully.", token: newToken });
+
       const msg = {
         to: email,
         from: 'admin@a1dos-creations.com',
