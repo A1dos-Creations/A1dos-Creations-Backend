@@ -757,49 +757,55 @@ app.post('/update-notifications', async (req, res) => {
       await db('users')
         .where({ id: userId })
         .update({ email_notifications: emailNotifications });
+      
+      // Retrieve the user's email from the database record
+      const email = user.email;
 
-
-  const msg = {
-    to: email,
-    from: 'admin@a1dos-creations.com',
-    subject: `✅ Notifications Restored`,
-    html: `
-                <tr height="32" style="height:32px"><td></td></tr>
-                <tr align="center">
-                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
-                <tbody>
-                <tr>
-                <td width="8" style="width:8px"></td>
-                <td>
-                <br>
-                <br>
-                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
-                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
-                <div style="font-size:24px"><strong>Notifications Restpred</strong></div>
-                <div style="font-size:19px">For account: <strong>${user.name} (${email})</strong></div>
-                <table align="center" style="margin-top:8px">
-                <tbody><tr style="line-height:normal">
-                <td align="right" style="padding-right:8px">
-                </td>
-                </tr>
-                </tbody>
-                </table>
-                </div>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>You will now receive updates on Google Accounts linking, STL changes (regarding your account), and password changes.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
-                </div>
-                </div>
-                </tr>
-                <tr height="32" style="height:32px"><td></td></tr>
-    `,
-    trackingSettings: {
-      clickTracking: { enable: false, enableText: false },
-  }
-}
-  sgMail
-    .send(msg)
-    .then(() => console.log(`Login email sent to ${email}`))
-    .catch(error => console.error("SendGrid Error:", error.response.body));
-  
+      const msg = {
+        to: email,
+        from: 'admin@a1dos-creations.com',
+        subject: `✅ Notifications Restpred`,
+        html: `
+          <tr height="32" style="height:32px"><td></td></tr>
+          <tr align="center">
+          <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+          <tbody>
+          <tr>
+          <td width="8" style="width:8px"></td>
+          <td>
+          <br>
+          <br>
+          <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+          <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+          <div style="font-size:24px"><strong>Notifications Restpred</strong></div>
+          <div style="font-size:19px">For account: <strong>${user.name} (${email})</strong></div>
+          <table align="center" style="margin-top:8px">
+          <tbody><tr style="line-height:normal">
+          <td align="right" style="padding-right:8px"></td>
+          </tr></tbody>
+          </table>
+          </div>
+          <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left">
+            <br>You will now receive updates on Google Accounts linking, STL changes (regarding your account), and password changes.
+            <div style="padding-top:32px;text-align:center">
+              <a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:blue;border-radius:5px;min-width:90px" target="_blank">
+                Account Dashboard
+              </a>
+            </div>
+          </div>
+          </tr>
+          <tr height="32" style="height:32px"><td></td></tr>
+        `,
+        trackingSettings: {
+          clickTracking: { enable: false, enableText: false },
+        }
+      };
+      
+      sgMail
+        .send(msg)
+        .then(() => console.log(`Notification email sent to ${email}`))
+        .catch(error => console.error("SendGrid Error:", error.response.body));
+      
       res.json({ success: true, message: "Notification preferences updated." });
   } catch (error) {
       console.error("Error updating notifications:", error);
