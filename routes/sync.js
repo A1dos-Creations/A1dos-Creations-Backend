@@ -1,7 +1,16 @@
 import express from 'express';
 import { google } from 'googleapis';
-import { pool } from '../db.js'; // Assuming PostgreSQL is set up
+import knex from 'knex';
+import dotenv from 'dotenv';
+dotenv.config();
 
+const db = knex({
+  client: 'pg',
+  connection: {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { require: true, rejectUnauthorized: false }
+  }
+});
 const router = express.Router();
 
 router.post('/sync', async (req, res) => {
@@ -37,7 +46,7 @@ router.post('/sync', async (req, res) => {
       const studentEmail = studentResponse.data.emailAddress;
       const grade = submission.assignedGrade;
 
-      const studentQuery = await pool.query(
+      const studentQuery = await db.query(
         'SELECT aeries_student_id FROM students WHERE email = $1 AND school_id = $2',
         [studentEmail, aeriesSchoolId]
       );
