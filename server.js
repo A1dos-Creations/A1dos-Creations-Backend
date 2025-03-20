@@ -21,7 +21,7 @@ console.log(crypto.randomBytes(32).toString('hex'));
 
 const allowedOrigins = [
   'https://a1dos-creations.com',
-  'https://api.a1dos-creations.onrender.com',
+  'https://a1dos-login.onrender.com',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
   'http://127.0.0.1:3000/'
