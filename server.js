@@ -322,7 +322,6 @@ app.post('/send-verification-code', async (req, res) => {
     }
 });
 
-
 app.post('/update-password', async (req, res) => {
   const { email, verificationCode, newPassword } = req.body;
   try {
@@ -386,11 +385,18 @@ app.post('/update-password', async (req, res) => {
         }
     };
     sgMail.send(msg)
-        .then(() => res.json({ success: true, message: "Verification code sent." }))
-        .catch(error => {
-            console.error("SendGrid Error:", error.response.body);
-            res.status(500).json({ success: false, message: "Error sending email." });
-        });
+    .then(() => res.json({ success: true, message: "Verification code sent." }))
+    .catch(error => {
+        console.error("SendGrid Error:", error);
+
+        if (error.response) {
+            console.error("SendGrid Response Error:", error.response.body);
+        } else {
+            console.error("Unknown SendGrid error. No response body.");
+        }
+
+        res.status(500).json({ success: false, message: "Error sending email." });
+    });
   } catch (error) {
       console.error("Error updating password:", error);
       res.status(500).json({ success: false, message: "Internal server error." });
