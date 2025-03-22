@@ -870,11 +870,24 @@ app.post('/create-checkout-session', async (req, res) => {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; 
 
+// Helper function to generate a secure 20-char upgrade key
+function generateSecureCode(length = 20) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let code = '';
+  const bytes = crypto.randomBytes(length);
+  for (let i = 0; i < length; i++) {
+    code += alphabet[bytes[i] % alphabet.length];
+  }
+  return code;
+}
+
 app.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  const { token } = req.body;
+  // Note: In a real webhook, you may not pass your token in the body.
+  const { token } = req.body; 
   let event;
-
+  
+  // Validate token to identify the user initiating this process
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userId = decoded.id;
   
@@ -883,12 +896,8 @@ app.post('/webhook', async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found." });
   }
   
-  await db('users')
-    .select('id', 'name', 'email', 'password', 'email_notifications')
-    .where({ name: user.name })
-  
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error(`Webhook Error: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -900,18 +909,20 @@ app.post('/webhook', async (req, res) => {
     
     console.log(`Payment succeeded for user ${userId}. Session ID: ${session.id}`);
     
-    db('users')
-      .where({ id: userId })
-      .update({ premium: true })
-      .then(() => {
-        console.log(`User ${userId} updated with premium feature.`);
-        if(user.email_notifications){
-          const msg = {
-            to: user.email,
-            from: 'admin@a1dos-creations.com',
-            subject: `Welcome to Premium ${user.name}! 🎉`,
-            html: `
-                <tr height="32" style="height:32px"><td></td></tr>
+    try {
+      await db.transaction(async trx => {
+        await trx('users').where({ id: userId }).update({ premium: true });
+        
+        const upgradeCode = generateSecureCode();
+        await trx('upgrade_keys')
+          .insert({ code: upgradeCode, status: 'UNCLAIMED', user_id: userId });
+        
+        const msg = {
+          to: user.email,
+          from: 'admin@a1dos-creations.com',
+          subject: `Welcome to Premium ${user.name}! 🎉`,
+          html: `
+           <tr height="32" style="height:32px"><td></td></tr>
                 <tr align="center">
                 <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
                 <tbody>
@@ -924,7 +935,8 @@ app.post('/webhook', async (req, res) => {
                 <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
                 <div style="font-size:24px"><strong>🎁 Welcome To Premium!</strong></div>
                 <div style="font-size:19px">For account: <strong>${user.name}</strong> <strong style="font-size:16px">(${email})</strong></div>
-                <div style="font-size:15px">Your account has been upgraded to Premium.</div>
+                <div style="font-size:15px">Enter this key to unlock STL+</div>
+                <div style="font-size:17pc"><strong>${upgradeCode}</strong></div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
@@ -933,29 +945,27 @@ app.post('/webhook', async (req, res) => {
                 </tbody>
                 </table>
                 </div>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>You will recieve a unique product key to enter in STL that will unlock several new features!<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Get Product Key</a>
+                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Don't share this prouduct key, you will not need another one.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/account" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
                 </div>
                 </div>
                 </tr>
                 <tr height="32" style="height:32px"><td></td></tr>
-            `,
-            trackingSettings: {
-              clickTracking: { enable: false, enableText: false },
+          `,
+          trackingSettings: {
+            clickTracking: { enable: false, enableText: false }
           }
-          }
-          sgMail
-            .send(msg)
-            .then(() => console.log(`Login email sent to ${email}`))
-            .catch(error => console.error("SendGrid Error:", error.response.body));
-          }
-        })
-        .catch(err => {
-          console.error('Database update error:', err);
-        });
-      }
+        };
+        await sgMail.send(msg);
+        console.log(`User ${userId} updated to premium and upgrade key emailed.`);
+      });
+    } catch (err) {
+      console.error('Error during premium update and upgrade key generation:', err);
+    }
+  }
   
   res.json({ received: true });
 });
+
 
 app.post('/get-user-sessions', async (req, res) => {
   try {
@@ -1157,6 +1167,39 @@ app.post('/delete-task-event', async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
+
+app.post('/claim-upgrade-code', async (req, res) => {
+  const { token, code } = req.body;
+  if (!token || !code) {
+    return res.status(400).json({ success: false, message: "Missing token or code." });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+    await db.transaction(async trx => {
+      const upgradeKey = await trx('upgrade_keys')
+        .select('*')
+        .where({ code, status: 'UNCLAIMED' })
+        .forUpdate()
+        .first();
+      if (!upgradeKey) {
+        throw new Error('Invalid or already claimed code.');
+      }
+      await trx('upgrade_keys')
+        .update({ status: 'CLAIMED', user_id: userId, claimed_at: trx.fn.now() })
+        .where({ code });
+      await trx('users')
+        .update({ premium: true })
+        .where({ id: userId });
+    });
+    res.json({ success: true, message: "Upgrade code claimed successfully." });
+  } catch (error) {
+    console.error("Error claiming upgrade code:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
