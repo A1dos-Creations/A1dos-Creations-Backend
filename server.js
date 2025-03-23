@@ -777,7 +777,7 @@ app.post('/update-notifications', async (req, res) => {
       const msg = {
         to: email,
         from: 'admin@a1dos-creations.com',
-        subject: `✅ Notifications Restpred`,
+        subject: `✅ Notifications Restored`,
         html: `
           <tr height="32" style="height:32px"><td></td></tr>
           <tr align="center">
@@ -790,7 +790,7 @@ app.post('/update-notifications', async (req, res) => {
           <br>
           <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
           <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
-          <div style="font-size:24px"><strong>Notifications Restpred</strong></div>
+          <div style="font-size:24px"><strong>Notifications Restored</strong></div>
           <div style="font-size:19px">For account: <strong>${user.name} (${email})</strong></div>
           <table align="center" style="margin-top:8px">
           <tbody><tr style="line-height:normal">
@@ -1198,8 +1198,6 @@ app.post('/claim-upgrade-code', async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 });
-
-
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
