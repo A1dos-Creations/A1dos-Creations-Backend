@@ -11,14 +11,16 @@ const db = knex({
   }
 });
 
-router.get('/movie/:uniqueId', async (req, res) => {
-    const { uniqueId } = req.params;  // This should match the route parameter
+router.get('/:uniqueId', async (req, res) => {
+    const { uniqueId } = req.params;
+    console.log("Received uniqueId:", uniqueId); 
+
     try {
       const movie = await db('movies').where({ unique_id: uniqueId }).first();
       if (!movie) {
         return res.status(404).json({ error: 'Movie not found' });
       }
-      res.json(movie);  // Return movie data as JSON
+      res.json(movie);
     } catch (error) {
       console.error("Error fetching movie:", error);
       res.status(500).json({ error: 'Internal server error' });
