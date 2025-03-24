@@ -15,18 +15,19 @@ const db = knex({
 const router = express.Router();
 
 function getUserEmail(req) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded.email;
-  } catch (err) {
-    return null;
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  
+    const token = authHeader.split(' ')[1];
+  
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded.email;
+    } catch (err) {
+      console.error("JWT verification failed:", err);
+      return null;
+    }
   }
-}
 
 router.post('/rsvp', async (req, res) => {
   const userEmail = getUserEmail(req);

@@ -10,7 +10,8 @@ const db = knex({
   }
 });
 
-router.get('/:uniqueId', async (req, res) => {
+router.get('/movie/:uniqueId', async (req, res) => {
+    console.log(`Route hit for uniqueId: ${req.params.uniqueId}`);
   const { uniqueId } = req.params;
 
   try {
