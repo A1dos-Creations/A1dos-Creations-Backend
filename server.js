@@ -99,7 +99,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 import crypto from 'crypto';
 import movieRouter from './routes/movies.js';
+import rsvpRouter from './routes/rsvp.js';
 
+app.use('/movie', rsvpRouter);
 app.use('/movie', movieRouter);
 
 const schoolData = {
