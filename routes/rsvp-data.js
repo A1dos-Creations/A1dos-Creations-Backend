@@ -47,4 +47,5 @@ router.get('/rsvp-data', async (req, res) => {
       res.status(500).json({ success: false, message: "Internal server error" });
     }
   });
-  
+
+export default router;
