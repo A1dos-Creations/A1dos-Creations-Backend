@@ -47,7 +47,7 @@ app.options('*', cors());
 app.use(express.json());
 
 app.use(session({
-  secret: env.JWT_SECRET,
+  secret: 'env.JWT_SECRET',
   resave: false,
   saveUninitialized: true
 }));
