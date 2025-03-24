@@ -13,7 +13,7 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 import session from 'express-session';
-import classesRouter from './routes/classes.js';
+import classesRouter from '/routes/classes.js';
 import assignmentsRouter from './routes/assignments.js';
 import syncRouter from './routes/sync.js';
 
@@ -93,7 +93,7 @@ const db = knex({
 const JWT_SECRET = process.env.JWT_SECRET;
 
 import crypto from 'crypto';
-import movieRouter from './routes/movie.js';
+import movieRouter from '/routes/movie.js';
 
 app.use('/movie', movieRouter);
 
