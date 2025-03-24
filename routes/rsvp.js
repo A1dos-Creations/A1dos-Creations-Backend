@@ -1,7 +1,17 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import db from '../db.js'; 
-import { requireAuth } from '../middleware/auth.js'; 
+import { requireAuth } from '../middleware/auth.js';
+import knex from 'knex';
+
+const db = knex({
+  client: 'pg',
+  connection: {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { require: true, rejectUnauthorized: false }
+  }
+});
 
 const router = express.Router();
 
