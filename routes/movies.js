@@ -23,8 +23,6 @@ router.get('/movie/:uniqueId', async (req, res) => {
       console.error("Error fetching movie:", error);
       res.status(500).json({ error: 'Internal server error' });
     }
-});
-  
-  
+  });
 
 export default router;
