@@ -93,7 +93,7 @@ const db = knex({
 const JWT_SECRET = process.env.JWT_SECRET;
 
 import crypto from 'crypto';
-import movieRouter from '/routes/movie.js';
+import movieRouter from './routes/movies.js';
 
 app.use('/movie', movieRouter);
 
