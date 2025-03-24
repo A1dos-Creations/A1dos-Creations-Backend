@@ -101,7 +101,7 @@ import crypto from 'crypto';
 import movieRouter from './routes/movies.js';
 import rsvpRouter from './routes/rsvp.js';
 
-app.use('/movie', rsvpRouter);
+app.use('/movies', rsvpRouter);
 app.use('/movie', movieRouter);
 
 const schoolData = {
