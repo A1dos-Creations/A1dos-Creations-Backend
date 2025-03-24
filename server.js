@@ -100,9 +100,11 @@ const JWT_SECRET = process.env.JWT_SECRET;
 import crypto from 'crypto';
 import movieRouter from './routes/movies.js';
 import rsvpRouter from './routes/rsvp.js';
+import rsvpDataRouter from './routes/rsvp-data.js';
 
-app.use('/movies', rsvpRouter);
+app.use('/movie/rsvp', rsvpRouter);
 app.use('/movie', movieRouter);
+app.use('/movies', rsvpDataRouter);
 
 const schoolData = {
   "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],

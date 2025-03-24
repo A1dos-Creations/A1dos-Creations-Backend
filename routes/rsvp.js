@@ -55,23 +55,4 @@ router.post('/rsvp', async (req, res) => {
   }
 });
 
-router.get('/rsvp-data', async (req, res) => {
-  const userEmail = getUserEmail(req);
-  if (!userEmail) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
-  }
-
-  if (userEmail !== 'rbentertainmentinfo@gmail.com') {
-    return res.status(403).json({ success: false, message: "Access Denied" });
-  }
-
-  try {
-    const rsvps = await db('rsvps').select('*');
-    res.json({ success: true, rsvps });
-  } catch (error) {
-    console.error("Error fetching RSVPs:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
-
 export default router;
