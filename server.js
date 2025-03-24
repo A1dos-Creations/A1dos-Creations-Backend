@@ -44,7 +44,7 @@ app.options('*', cors());
 app.use(express.json());
 
 app.use(session({
-  secret: 'your-secret-key',
+  secret: env.JWT_SECRET,
   resave: false,
   saveUninitialized: true
 }));
@@ -93,6 +93,9 @@ const db = knex({
 const JWT_SECRET = process.env.JWT_SECRET;
 
 import crypto from 'crypto';
+import movieRouter from './routes/movie.js';
+
+app.use('/movie', movieRouter);
 
 const schoolData = {
   "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],
