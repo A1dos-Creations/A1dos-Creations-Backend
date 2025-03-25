@@ -106,9 +106,10 @@ app.use('/movie/rsvp', rsvpRouter);
 app.use('/movie', movieRouter);
 app.use('/movies', rsvpDataRouter);
 
+/*
 app.use((req, res) => {
   res.status(404).send("Page not found");
-});
+});*/
 
 const schoolData = {
   "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],
