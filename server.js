@@ -28,7 +28,7 @@ const allowedOrigins = [
   'https://api.a1dos-creations.com',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
-  'http://127.0.0.1:3000/'
+  'http://127.0.0.1:3000'
 ];
 
 const app = express();
