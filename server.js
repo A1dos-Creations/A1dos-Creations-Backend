@@ -24,8 +24,6 @@ import assignmentsRouter from './routes/assignments.js';
 import syncRouter from './routes/sync.js';
 */
 
-console.log(crypto.randomBytes(32).toString('hex'));
-
 const allowedOrigins = [
   'https://a1dos-creations.com',
   'https://a1dos-login.onrender.com',
