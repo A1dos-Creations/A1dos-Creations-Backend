@@ -525,7 +525,7 @@ app.post('/login-user', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2d' });
 
-    const deviceInfo = req.headers['user-agent'] || "Unknown device";
+    let deviceInfo = req.headers['user-agent'] || "Unknown device";
     if(req.headers['x-client-source'] && req.headers['x-client-source'] === 'extension'){
       deviceInfo = "STL Extension";
     }
