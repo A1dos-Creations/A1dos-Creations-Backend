@@ -13,6 +13,7 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 import session from 'express-session';
+import PgSession from 'connect-pg-simple';
 
 /*
 import classesRouter from '/routes/classes.js';
@@ -47,9 +48,13 @@ app.options('*', cors());
 app.use(express.json());
 
 app.use(session({
-  secret: 'env.JWT_SECRET',
+  store: new PgSession({
+    conString: process.env.DATABASE_URL,
+  }),
+  secret: process.env.JWT_SECRET,
   resave: false,
-  saveUninitialized: true
+  saveUninitialized: false,
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } 
 }));
 
 /*
