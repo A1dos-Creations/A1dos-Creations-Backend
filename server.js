@@ -503,8 +503,6 @@ app.post('/register-user', async (req, res) => {
   }
 });
 
-
-
 app.post('/login-user', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -528,6 +526,9 @@ app.post('/login-user', async (req, res) => {
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2d' });
 
     const deviceInfo = req.headers['user-agent'] || "Unknown device";
+    if(req.headers['x-client-source'] && req.headers['x-client-source'] === 'extension'){
+      deviceInfo = "STL Extension";
+    }
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || "Unknown IP";
 
     let location = "Unknown Location";
