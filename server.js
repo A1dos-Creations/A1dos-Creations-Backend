@@ -41,7 +41,7 @@ app.use(cors({
       }
   },
   methods: ['GET', 'POST'],
-  allowedHeaders: 'Content-Type,Authorization'
+  allowedHeaders: 'Content-Type,Authorization,x-client-source'
 }));
 app.options('*', cors());
 app.use(express.json());
