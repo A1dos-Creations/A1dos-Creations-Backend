@@ -12,8 +12,11 @@ import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import session from 'express-session';
-import PgSession from 'connect-pg-simple';
+const PgSessionStore = require('connect-pg-simple')(session);
 
 /*
 import classesRouter from '/routes/classes.js';
@@ -48,10 +51,13 @@ app.options('*', cors());
 app.use(express.json());
 
 app.use(session({
+  store: new PgSessionStore({
+    conString: process.env.DATABASE_URL
+  }),
   secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } 
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
 /*
