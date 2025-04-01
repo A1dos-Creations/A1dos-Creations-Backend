@@ -48,9 +48,6 @@ app.options('*', cors());
 app.use(express.json());
 
 app.use(session({
-  store: new PgSession({
-    conString: process.env.DATABASE_URL,
-  }),
   secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: false,
