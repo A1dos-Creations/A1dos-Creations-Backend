@@ -24,6 +24,10 @@ import assignmentsRouter from './routes/assignments.js';
 import syncRouter from './routes/sync.js';
 */
 
+const ALLOWED_RETURN_URLS = [
+  'http://127.0.0.1:3000/auth/callback',
+];
+
 const allowedOrigins = [
   'https://a1dos-creations.com',
   'https://a1dos-login.onrender.com',
@@ -510,99 +514,127 @@ app.post('/register-user', async (req, res) => {
 });
 
 app.post('/login-user', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, returnUrl, sourceAppId } = req.body; // Expect these in the POST body
+
   if (!email || !password) {
     return res.status(400).json('Please provide email and password');
   }
+
   try {
     const user = await db('users')
-      .select('id', 'name', 'email', 'password', 'email_notifications')
+      .select('id', 'name', 'email', 'password', 'email_notifications') // Added email_notifications
       .where({ email: email.trim() })
       .first();
 
     if (!user) {
+      console.log(`Login attempt failed: User not found for email ${email}`);
       return res.status(400).json('Email or password is incorrect');
     }
 
     const isMatch = await bcrypt.compare(password.trim(), user.password);
     if (!isMatch) {
+      console.log(`Login attempt failed: Incorrect password for user ${user.id}`);
       return res.status(400).json('Email or password is incorrect');
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2d' });
+    const performRedirect = sourceAppId && returnUrl && ALLOWED_RETURN_URLS.includes(returnUrl);
 
-    let deviceInfo = req.headers['user-agent'] || "Unknown device";
-    if(req.headers['x-client-source'] && req.headers['x-client-source'] === 'extension'){
-      deviceInfo = "STL Extension";
-    }
-    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || "Unknown IP";
+    if (performRedirect) {
+      console.log(`Cross-site login initiated from source '${sourceAppId}' for user ${user.id}. Valid returnUrl: ${returnUrl}`);
 
-    let location = "Unknown Location";
-    try {
+      const tempAuthTokenPayload = {
+        id: user.id,
+        email: user.email,
+        name: user.name // Include necessary info Site A might need immediately
+      };
+      const tempAuthToken = jwt.sign(tempAuthTokenPayload, JWT_SECRET, { expiresIn: '120s' }); // e.g., 2 minutes validity
+
+      const redirectTarget = new URL(returnUrl); // Use URL constructor for safety
+      redirectTarget.searchParams.append('authToken', tempAuthToken);
+
+      console.log(`Redirecting user ${user.id} to ${redirectTarget.toString()}`);
+      return res.redirect(redirectTarget.toString());
+
+    } else {
+      console.log(`Standard login successful for user ${user.id}`);
+
+      const standardToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2d' }); // Your original expiry
+
+      let deviceInfo = req.headers['user-agent'] || "Unknown device";
+      if (req.headers['x-client-source'] && req.headers['x-client-source'] === 'extension') {
+        deviceInfo = "STL Extension";
+      }
+      const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || "Unknown IP";
+      let location = "Unknown Location";
+      try {
         const locationResponse = await fetch(`http://ip-api.com/json/${ipAddress}`);
         const locationData = await locationResponse.json();
         if (locationData.status === "success") {
-            location = `${locationData.city}, ${locationData.regionName}, ${locationData.country}`;
+          location = `${locationData.city}, ${locationData.regionName}, ${locationData.country}`;
         }
-    } catch (error) {
+      } catch (error) {
         console.error("Error fetching location:", error);
-    }
+      }
 
-    await db('user_sessions').insert({
-      user_id: user.id,
-      session_token: token,
-      device_info: deviceInfo,
-      ip_address: ipAddress,
-      location: location,
-      login_time: new Date(),
-      last_activity: new Date()
-    });
+      await db('user_sessions').insert({
+        user_id: user.id,
+        session_token: standardToken, // Use the standard token here
+        device_info: deviceInfo,
+        ip_address: ipAddress,
+        location: location,
+        login_time: new Date(),
+        last_activity: new Date()
+      });
 
+      res.json({
+        user: { name: user.name, email: user.email, email_notifications: user.email_notifications },
+        token: standardToken // Return the standard token
+      });
 
-    res.json({ user: { name: user.name, email: user.email, email_notifications: user.email_notifications }, token });
-    if(user.email_notifications){
-    const msg = {
-      to: email,
-      from: 'admin@a1dos-creations.com',
-      subject: `⚠️ New login for user: ${user.name}`,
-      html: `
-                <tr height="32" style="height:32px"><td></td></tr>
-                <tr align="center">
-                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
-                <tbody>
-                <tr>
-                <td width="8" style="width:8px"></td>
-                <td>
-                <br>
-                <br>
-                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
-                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
-                <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
-                <div style="font-size:19px"></strong></div>
-                <div style="font-size:15px">${user.email}</div>
-                <div style="font-size:15px">Sign in location: ${ipAddress}</div>
-                <table align="center" style="margin-top:8px">
-                <tbody><tr style="line-height:normal">
-                <td align="right" style="padding-right:8px">
-                </td>
-                </tr>
-                </tbody>
-                </table>
-                </div>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, please reset your password.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/dashboard?resetPsw=true" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Reset Password</a>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your account's linked devices.</div>
-                </div>
-                </div>
-                </tr>
-                <tr height="32" style="height:32px"><td></td></tr>
-      `,
-      trackingSettings: {
-        clickTracking: { enable: false, enableText: false },
-    }
-    }
-    sgMail
-      .send(msg)
-      .catch(error => console.error("SendGrid Error:", error.response.body));
+      if(user.email_notifications){
+        const msg = {
+          to: email,
+          from: 'admin@a1dos-creations.com',
+          subject: `⚠️ New login for user: ${user.name}`,
+          html: `
+                    <tr height="32" style="height:32px"><td></td></tr>
+                    <tr align="center">
+                    <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
+                    <tbody>
+                    <tr>
+                    <td width="8" style="width:8px"></td>
+                    <td>
+                    <br>
+                    <br>
+                    <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
+                    <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
+                    <div style="font-size:24px"><strong>New login for ${user.name}</strong></div>
+                    <div style="font-size:19px"></strong></div>
+                    <div style="font-size:15px">${user.email}</div>
+                    <div style="font-size:15px">Sign in location: ${ipAddress}</div>
+                    <table align="center" style="margin-top:8px">
+                    <tbody><tr style="line-height:normal">
+                    <td align="right" style="padding-right:8px">
+                    </td>
+                    </tr>
+                    </tbody>
+                    </table>
+                    </div>
+                    <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>If this was not you, please reset your password.<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/dashboard?resetPsw=true" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Reset Password</a>
+                    <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Be sure to check your account's linked devices.</div>
+                    </div>
+                    </div>
+                    </tr>
+                    <tr height="32" style="height:32px"><td></td></tr>
+          `,
+          trackingSettings: {
+            clickTracking: { enable: false, enableText: false },
+        }
+        }
+        sgMail
+          .send(msg)
+          .catch(error => console.error("SendGrid Error:", error.response.body));
+        }
     }
 
   } catch (err) {
