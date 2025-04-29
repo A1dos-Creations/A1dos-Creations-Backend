@@ -1314,66 +1314,78 @@ app.post('/api/chat', async (req, res) => {
     const helperPrompt = `You are an AI assistant for students. Your goal is to help students understand concepts, brainstorm ideas, structure writing, or learn processes. You MUST NOT provide direct answers to homework questions, write essays/code for them, solve complex math problems step-by-step if it seems like homework, or do anything that would facilitate cheating. Instead, guide them, ask probing questions, explain underlying concepts, suggest resources, or help them break down the problem. Focus on fostering understanding and critical thinking. Respond only to the user's query below, keeping these constraints in mind:\n\nUser Query: ${message}`;
 
     try {
-        console.log(`Sending prompt to AI for user <span class="math-inline">\{userId\}\: "</span>{helperPrompt.substring(0, 100)}..."`); // Log safely
-
-        // --- IMPORTANT: Adapt this fetch call to your specific AI API ---
-        // This is a generic example structure, refer to your AI provider's documentation.
-        const aiResponse = await fetch(AI_API_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${AI_API_KEY}` // Common authorization method
-                // Add other headers required by the specific API
-            },
-            // --- Adapt the body structure based on the AI API ---
-            body: JSON.stringify({
-                // Example for OpenAI-like structure:
-                model: "gpt-3.5-turbo", // Or whichever model
-                // messages: [{ role: "user", content: helperPrompt }],
-                // max_tokens: 150, // Limit response length if needed
-
-                 contents: [{ parts: [{ text: helperPrompt }]}]
-            })
-        });
-
-        if (!aiResponse.ok) {
-            const errorBody = await aiResponse.text();
-            console.error(`AI API Error (${aiResponse.status}): ${errorBody}`);
-            throw new Error(`AI API request failed with status ${aiResponse.status}`);
-        }
-
-        const aiData = await aiResponse.json();
-
-        // --- IMPORTANT: Extract the actual text response based on the AI API's structure ---
-        // Example for OpenAI-like structure:
-        // const aiMessage = aiData.choices?.[0]?.message?.content?.trim();
-
-        // Example for Google AI-like structure:
-         const aiMessage = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-
-        if (!aiMessage) {
-            console.error("AI response format unexpected or empty:", aiData);
-            throw new Error("Failed to extract message from AI response.");
-        }
-
-        console.log(`Received AI response for user <span class="math-inline">\{userId\}\: "</span>{aiMessage.substring(0, 100)}..."`); // Log safely
-
-        // 4. Send Response Back to Frontend
-        res.json({
-            reply: aiMessage,
-            remaining: usage.remaining
-        });
-
-    } catch (error) {
-        console.error("Error in /api/chat:", error);
-        // Decrement usage count if AI call failed after incrementing
-        const userData = userUsage.get(userId);
-        if(userData) {
-            userData.count = Math.max(0, userData.count - 1); // Decrement safely
-             userUsage.set(userId, userData);
-        }
-        res.status(500).json({ error: 'Failed to get response from AI.', remaining: usage.remaining + 1 }); // Adjust remaining count
-    }
+      console.log(`Sending prompt to AI for user <span class="math-inline">\{userId\}\: "</span>{helperPrompt.substring(0, 100)}..."`);
+  
+      // --- Corrected fetch call for Google Gemini API ---
+      const fullUrl = `<span class="math-inline">\{AI\_API\_ENDPOINT\}?key\=</span>{AI_API_KEY}`; // Append API key as query parameter
+  
+      const aiResponse = await fetch(fullUrl, { // Use the URL with the key
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              // No 'Authorization' header needed for basic API key auth with Gemini
+          },
+          // Body structure for Gemini's generateContent
+          body: JSON.stringify({
+              contents: [{
+                  parts: [{
+                      text: helperPrompt // Send the combined prompt
+                  }]
+              }],
+              // Optional: Add generationConfig if needed (temperature, maxOutputTokens, etc.)
+              // generationConfig: {
+              //   temperature: 0.7,
+              //   maxOutputTokens: 250
+              // }
+          })
+      });
+  
+      if (!aiResponse.ok) {
+          const errorBody = await aiResponse.text();
+          console.error(`Gemini API Error (${aiResponse.status}): ${errorBody}`);
+          // Try parsing error if JSON
+          try {
+               const errorJson = JSON.parse(errorBody);
+               throw new Error(errorJson.error?.message || `Gemini API request failed with status ${aiResponse.status}`);
+          } catch(parseError) {
+               throw new Error(`Gemini API request failed with status ${aiResponse.status}`);
+          }
+      }
+  
+      const aiData = await aiResponse.json();
+  
+      // Extract the text response from Gemini's structure
+      // See: https://ai.google.dev/api/rest/v1/models/generateContent#response-body
+      const aiMessage = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  
+      if (!aiMessage) {
+          console.error("Gemini response format unexpected or empty:", JSON.stringify(aiData, null, 2));
+          throw new Error("Failed to extract message from Gemini response.");
+      }
+  
+      console.log(`Received AI response for user <span class="math-inline">\{userId\}\: "</span>{aiMessage.substring(0, 100)}..."`);
+  
+      // Send Response Back to Frontend
+      res.json({
+          reply: aiMessage,
+          remaining: usage.remaining
+      });
+  
+  } catch (error) {
+      // ... (existing error handling) ...
+       console.error("Error calling Gemini API:", error);
+       // Decrement usage count if AI call failed after incrementing
+       const userData = userUsage.get(userId);
+       if(userData) {
+           userData.count = Math.max(0, userData.count - 1); // Decrement safely
+           userUsage.set(userId, userData);
+       }
+       res.status(500).json({
+          error: `Failed to get response from AI: ${error.message}`,
+          // Adjust remaining count (might be +1 if decrement happened)
+          remaining: userUsage.get(userId)?.count !== undefined ? 5 - userUsage.get(userId).count : messagesRemaining
+      });
+  }
 });
 
 // --- Start Server ---
