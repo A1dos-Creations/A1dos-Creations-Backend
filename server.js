@@ -29,17 +29,17 @@ const ALLOWED_RETURN_URLS = [
 ];
 
 const allowedOrigins = [
-  /*'https://a1dos-creations.com',
+  'https://a1dos-creations.com',
   'https://a1dos-login.onrender.com',
   'https://api.a1dos-creations.com',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
+  'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
   'http://127.0.0.1:3000'
-  */
-  '*'
 ];
 
 const app = express();
+/*
 app.use(cors({
   origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
@@ -50,6 +50,13 @@ app.use(cors({
   },
   methods: ['GET', 'POST'],
   allowedHeaders: 'Content-Type,Authorization,x-client-source'
+}));
+*/
+// Replace lines 41-51 with this:
+app.use(cors({
+  origin: 'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', // Allow only your extension
+  methods: ['GET', 'POST'], // Keep methods you need
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'] // Keep headers you need
 }));
 app.options('*', cors());
 app.use(express.json());
