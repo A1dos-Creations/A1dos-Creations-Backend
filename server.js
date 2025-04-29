@@ -1388,12 +1388,5 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// --- Start Server ---
-app.listen(PORT, () => {
-    console.log(`AI Chat Backend listening on port ${PORT}`);
-    console.log(`Make sure your AI Endpoint is set to: ${AI_API_ENDPOINT}`);
-    console.log(`Ensure your extension has permission to access http://localhost:${PORT}`);
-});
-
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
