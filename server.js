@@ -1255,5 +1255,133 @@ app.post('/claim-upgrade-code', async (req, res) => {
   }
 });
 
+const AI_API_KEY = process.env.AI_API_KEY;
+const AI_API_ENDPOINT = process.env.AI_API_ENDPOINT;
+
+if (!AI_API_KEY || !AI_API_ENDPOINT) {
+    console.error("Error: AI_API_KEY or AI_API_ENDPOINT not found in .env file.");
+    process.exit(1); // Stop the server if keys are missing
+}
+
+const userUsage = new Map();
+
+function checkAndIncrementUsage(userId) {
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const userData = userUsage.get(userId);
+
+    if (userData) {
+        if (now - userData.timestamp > oneDay) {
+            console.log(`Resetting count for user ${userId}`);
+            userData.count = 0;
+            userData.timestamp = now;
+        }
+
+        if (userData.count >= 5) {
+            console.log(`User ${userId} reached daily limit.`);
+            return { allowed: false, remaining: 0 };
+        }
+
+        userData.count++;
+        userUsage.set(userId, userData); // Update map
+        console.log(`User ${userId} used message ${userData.count}/5`);
+        return { allowed: true, remaining: 5 - userData.count };
+    } else {
+        userUsage.set(userId, { count: 1, timestamp: now });
+        console.log(`User ${userId} used message 1/5`);
+        return { allowed: true, remaining: 4 };
+    }
+}
+
+app.use(cors({ origin: '*' })); // Allow all origins for simplicity (restrict in production!)
+app.use(express.json()); // Parse JSON request bodies
+
+app.post('/api/chat', async (req, res) => {
+    const { userId, message } = req.body;
+
+    if (!userId || !message) {
+        return res.status(400).json({ error: 'userId and message are required.' });
+    }
+
+    const usage = checkAndIncrementUsage(userId);
+    if (!usage.allowed) {
+        return res.status(429).json({
+            error: 'Daily message limit reached.',
+            remaining: usage.remaining
+        });
+    }
+
+    const helperPrompt = `You are an AI assistant for students. Your goal is to help students understand concepts, brainstorm ideas, structure writing, or learn processes. You MUST NOT provide direct answers to homework questions, write essays/code for them, solve complex math problems step-by-step if it seems like homework, or do anything that would facilitate cheating. Instead, guide them, ask probing questions, explain underlying concepts, suggest resources, or help them break down the problem. Focus on fostering understanding and critical thinking. Respond only to the user's query below, keeping these constraints in mind:\n\nUser Query: ${message}`;
+
+    try {
+        console.log(`Sending prompt to AI for user <span class="math-inline">\{userId\}\: "</span>{helperPrompt.substring(0, 100)}..."`); // Log safely
+
+        // --- IMPORTANT: Adapt this fetch call to your specific AI API ---
+        // This is a generic example structure, refer to your AI provider's documentation.
+        const aiResponse = await fetch(AI_API_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${AI_API_KEY}` // Common authorization method
+                // Add other headers required by the specific API
+            },
+            // --- Adapt the body structure based on the AI API ---
+            body: JSON.stringify({
+                // Example for OpenAI-like structure:
+                model: "gpt-3.5-turbo", // Or whichever model
+                // messages: [{ role: "user", content: helperPrompt }],
+                // max_tokens: 150, // Limit response length if needed
+
+                 contents: [{ parts: [{ text: helperPrompt }]}]
+            })
+        });
+
+        if (!aiResponse.ok) {
+            const errorBody = await aiResponse.text();
+            console.error(`AI API Error (${aiResponse.status}): ${errorBody}`);
+            throw new Error(`AI API request failed with status ${aiResponse.status}`);
+        }
+
+        const aiData = await aiResponse.json();
+
+        // --- IMPORTANT: Extract the actual text response based on the AI API's structure ---
+        // Example for OpenAI-like structure:
+        // const aiMessage = aiData.choices?.[0]?.message?.content?.trim();
+
+        // Example for Google AI-like structure:
+         const aiMessage = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (!aiMessage) {
+            console.error("AI response format unexpected or empty:", aiData);
+            throw new Error("Failed to extract message from AI response.");
+        }
+
+        console.log(`Received AI response for user <span class="math-inline">\{userId\}\: "</span>{aiMessage.substring(0, 100)}..."`); // Log safely
+
+        // 4. Send Response Back to Frontend
+        res.json({
+            reply: aiMessage,
+            remaining: usage.remaining
+        });
+
+    } catch (error) {
+        console.error("Error in /api/chat:", error);
+        // Decrement usage count if AI call failed after incrementing
+        const userData = userUsage.get(userId);
+        if(userData) {
+            userData.count = Math.max(0, userData.count - 1); // Decrement safely
+             userUsage.set(userId, userData);
+        }
+        res.status(500).json({ error: 'Failed to get response from AI.', remaining: usage.remaining + 1 }); // Adjust remaining count
+    }
+});
+
+// --- Start Server ---
+app.listen(PORT, () => {
+    console.log(`AI Chat Backend listening on port ${PORT}`);
+    console.log(`Make sure your AI Endpoint is set to: ${AI_API_ENDPOINT}`);
+    console.log(`Ensure your extension has permission to access http://localhost:${PORT}`);
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
