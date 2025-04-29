@@ -29,12 +29,14 @@ const ALLOWED_RETURN_URLS = [
 ];
 
 const allowedOrigins = [
-  'https://a1dos-creations.com',
+  /*'https://a1dos-creations.com',
   'https://a1dos-login.onrender.com',
   'https://api.a1dos-creations.com',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
   'http://127.0.0.1:3000'
+  */
+  '*'
 ];
 
 const app = express();
