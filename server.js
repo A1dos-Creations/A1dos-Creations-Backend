@@ -52,13 +52,19 @@ app.use(cors({
   allowedHeaders: 'Content-Type,Authorization,x-client-source'
 }));
 */
-// Replace lines 41-51 with this:
 app.use(cors({
-  origin: 'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg', // Allow only your extension
-  methods: ['GET', 'POST'], // Keep methods you need
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'] // Keep headers you need
+  origin: function (origin, callback) {
+
+      if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+      } else {
+          console.error(`CORS Error: Origin "${origin}" not in allowed list.`); // Log denied origins
+          callback(new Error('Not allowed by CORS'));
+      }
+  },
+  methods: ['GET', 'POST'], // Specify allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'] // Specify allowed headers
 }));
-app.options('*', cors());
 app.use(express.json());
 
 app.use(session({
@@ -1326,7 +1332,7 @@ app.post('/api/chat', async (req, res) => {
       console.log(`Sending prompt to AI for user <span class="math-inline">\{userId\}\: "</span>{helperPrompt.substring(0, 100)}..."`);
   
       // --- Corrected fetch call for Google Gemini API ---
-      const fullUrl = `<span class="math-inline">\{AI\_API\_ENDPOINT\}?key\=</span>{AI_API_KEY}`; // Append API key as query parameter
+      const fullUrl = `${AI_API_ENDPOINT}?key=${AI_API_KEY}`;
   
       const aiResponse = await fetch(fullUrl, { // Use the URL with the key
           method: 'POST',
