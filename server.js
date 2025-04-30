@@ -1292,24 +1292,21 @@ function checkAndIncrementUsage(userId) {
             userData.timestamp = now;
         }
 
-        if (userData.count >= 5) {
+        if (userData.count >= 10) {
             console.log(`User ${userId} reached daily limit.`);
             return { allowed: false, remaining: 0 };
         }
 
         userData.count++;
         userUsage.set(userId, userData); // Update map
-        console.log(`User ${userId} used message ${userData.count}/5`);
-        return { allowed: true, remaining: 5 - userData.count };
+        console.log(`User ${userId} used message ${userData.count}/10`);
+        return { allowed: true, remaining: 10 - userData.count };
     } else {
         userUsage.set(userId, { count: 1, timestamp: now });
-        console.log(`User ${userId} used message 1/5`);
-        return { allowed: true, remaining: 4 };
+        console.log(`User ${userId} used message 1/10`);
+        return { allowed: true, remaining: 9 };
     }
 }
-
-app.use(cors({ origin: '*' })); // Allow all origins for simplicity (restrict in production!)
-app.use(express.json()); // Parse JSON request bodies
 
 app.post('/api/chat', async (req, res) => {
     const { userId, message } = req.body;
