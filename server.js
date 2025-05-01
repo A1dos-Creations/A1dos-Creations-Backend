@@ -39,19 +39,6 @@ const allowedOrigins = [
 ];
 
 const app = express();
-/*
-app.use(cors({
-  origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-      } else {
-          callback(new Error('Not allowed by CORS'));
-      }
-  },
-  methods: ['GET', 'POST'],
-  allowedHeaders: 'Content-Type,Authorization,x-client-source'
-}));
-*/
 app.use(cors({
   origin: function (origin, callback) {
 
@@ -1280,10 +1267,16 @@ if (!AI_API_KEY || !AI_API_ENDPOINT) {
 
 const userUsage = new Map();
 
-function checkAndIncrementUsage(userId) {
+function checkAndIncrementUsage(userId, isAdmin = false) {
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
     const userData = userUsage.get(userId);
+
+    if (isAdmin) {
+      console.log(`Admin user ${userId} bypassing usage limit.`);
+      // Return a high number for remaining, or maybe Infinity? Or just indicate bypass.
+      return { allowed: true, remaining: Infinity };
+  }
 
     if (userData) {
         if (now - userData.timestamp > oneDay) {
@@ -1309,13 +1302,32 @@ function checkAndIncrementUsage(userId) {
 }
 
 app.post('/api/chat', async (req, res) => {
-    const { userId, message } = req.body;
+    const { userId, message, token } = req.body;
 
-    if (!userId || !message) {
+    if (!userId || !message || !token) {
         return res.status(400).json({ error: 'userId and message are required.' });
     }
 
-    const usage = checkAndIncrementUsage(userId);
+    let userIdFromDb;
+    let userIsAdmin = false;
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        userIdFromDb = decoded.id; // Get user ID from the *verified* token
+
+        const user = await db('users').where({ id: userIdFromDb }).select('is_admin').first();
+
+        if (!user) {
+            // Should not happen if token is valid, but good practice to check
+            return res.status(404).json({ error: 'User not found for token.' });
+        }
+        userIsAdmin = user.is_admin === true; // Check the admin flag
+
+    } catch (err) {
+        console.error("Token verification error:", err);
+        return res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+
+    const usage = checkAndIncrementUsage(userId, userIsAdmin);
     if (!usage.allowed) {
         return res.status(429).json({
             error: 'Daily message limit reached.',
@@ -1323,7 +1335,8 @@ app.post('/api/chat', async (req, res) => {
         });
     }
 
-    const helperPrompt = `You are an AI assistant for students. Your goal is to help students understand concepts, brainstorm ideas, structure writing, or learn processes. You MUST NOT provide direct answers to homework questions, write essays/code for them, solve complex math problems step-by-step if it seems like homework, or do anything that would facilitate cheating. Instead, guide them, ask probing questions, explain underlying concepts, suggest resources, or help them break down the problem. Focus on fostering understanding and critical thinking. Respond only to the user's query below, keeping these constraints in mind:\n\nUser Query: ${message}`;
+
+    const helperPrompt = `You are an AI assistant for students. Your goal is to help students understand concepts, brainstorm ideas, structure writing, or learn processes. You MUST NOT provide direct answers to homework questions, write essays/code for them, solve complex math problems step-by-step if it seems like homework, or do anything that would facilitate cheating. Instead, guide them, ask probing questions, explain underlying concepts, suggest resources, or help them break down the problem. Focus on fostering understanding and critical thinking. You can provide answers if the question does not seem like cheating or homework/schoolwork. Respond only to the user's query below, keeping these constraints in mind:\n\nUser Query: ${message}`;
 
     try {
       console.log(`Sending prompt to AI for user <span class="math-inline">\{userId\}\: "</span>{helperPrompt.substring(0, 100)}..."`);
@@ -1392,11 +1405,20 @@ app.post('/api/chat', async (req, res) => {
            userData.count = Math.max(0, userData.count - 1); // Decrement safely
            userUsage.set(userId, userData);
        }
-       res.status(500).json({
-          error: `Failed to get response from AI: ${error.message}`,
-          // Adjust remaining count (might be +1 if decrement happened)
-          remaining: userUsage.get(userId)?.count !== undefined ? 5 - userUsage.get(userId).count : messagesRemaining
-      });
+
+      if (!userIsAdmin) {
+        const userData = userUsage.get(userId);
+        if (userData) {
+          userData.count = Math.max(0, userData.count - 1); // Decrement safely
+          userUsage.set(userId, userData);
+        }
+      }
+
+      res.status(500).json({
+        error: `Failed to get response from AI: ${error.message}`,
+        // Adjust remaining count (might be +1 if decrement happened)
+        remaining: userUsage.get(userId)?.count !== undefined ? 5 - userUsage.get(userId).count : messagesRemaining
+    });
   }
 });
 
