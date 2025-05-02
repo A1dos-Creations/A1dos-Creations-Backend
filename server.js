@@ -1292,6 +1292,43 @@ function updateRemainingCount(count) {
    }
 }
 
+function checkAndIncrementUsage(userId, isAdmin = false) {
+  // If user is admin, always allow and don't track/increment
+  if (isAdmin) {
+      console.log(`Admin user ${userId} bypassing usage limit.`);
+      return { allowed: true, remaining: Infinity };
+  }
+
+  // Existing logic for non-admin users
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  const userData = userUsage.get(userId); // Still track non-admins by their unique ID
+
+  if (userData) {
+      if (now - userData.timestamp > oneDay) {
+          console.log(`Resetting count for non-admin user ${userId}`);
+          userData.count = 0;
+          userData.timestamp = now;
+      }
+
+      const currentLimit = 10; // Or your current limit
+      if (userData.count >= currentLimit) {
+          console.log(`Non-admin user ${userId} reached daily limit.`);
+          return { allowed: false, remaining: 0 };
+      }
+
+      userData.count++;
+      userUsage.set(userId, userData);
+      console.log(`Non-admin user ${userId} used message <span class="math-inline">\{userData\.count\}/</span>{currentLimit}`);
+      return { allowed: true, remaining: currentLimit - userData.count };
+  } else {
+      const currentLimit = 10; // Or your current limit
+      userUsage.set(userId, { count: 1, timestamp: now });
+      console.log(`Non-admin user <span class="math-inline">\{userId\} used message 1/</span>{currentLimit}`);
+      return { allowed: true, remaining: currentLimit - 1 };
+  }
+}
+
 // --- Add Authentication Middleware (Example - reuse/adapt isAdmin or create isAuth) ---
 const isAuth = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -1437,7 +1474,7 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
        return res.status(500).json({ error: 'Database error checking permissions.' });
   }
 
-  const usage = updateRemainingCount(extensionUserId, userIsAdmin);
+  const usage = checkAndIncrementUsage(extensionUserId, userIsAdmin);
   if (!usage.allowed) {
       return res.status(429).json({ error: 'Daily message limit reached.', remaining: usage.remaining });
   }
