@@ -1301,124 +1301,254 @@ function checkAndIncrementUsage(userId, isAdmin = false) {
     }
 }
 
-app.post('/api/chat', async (req, res) => {
-    const { userId, message, token } = req.body;
+// --- Add Authentication Middleware (Example - reuse/adapt isAdmin or create isAuth) ---
+const isAuth = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return res.sendStatus(401);
 
-    if (!userId || !message || !token) {
-        return res.status(400).json({ error: 'userId and message are required.' });
-    }
+  try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      // Check if user exists in DB (optional but good)
+      const user = await db('users').where({ id: decoded.id }).first();
+      if (!user) throw new Error('User not found');
+      req.userId = decoded.id; // Attach validated userId
+      next();
+  } catch (err) {
+      console.error("Auth error:", err.message);
+      return res.sendStatus(403); // Forbidden
+  }
+};
 
-    let userIdFromDb;
-    let userIsAdmin = false;
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        userIdFromDb = decoded.id; // Get user ID from the *verified* token
+// --- NEW: Conversation Endpoints ---
 
-        const user = await db('users').where({ id: userIdFromDb }).select('is_admin').first();
+// 1. Start a New Conversation
+app.post('/api/conversations', isAuth, async (req, res) => {
+  const userId = req.userId; // Get userId from isAuth middleware
+  try {
+      const [newConversation] = await db('conversations')
+          .insert({ user_id: userId, title: req.body.title || 'New Chat' }) // Optionally take title from request
+          .returning(['id', 'title', 'created_at', 'updated_at']);
 
-        if (!user) {
-            // Should not happen if token is valid, but good practice to check
-            return res.status(404).json({ error: 'User not found for token.' });
-        }
-        userIsAdmin = user.is_admin === true; // Check the admin flag
-
-    } catch (err) {
-        console.error("Token verification error:", err);
-        return res.status(401).json({ error: 'Invalid or expired token.' });
-    }
-
-    const usage = checkAndIncrementUsage(userId, userIsAdmin);
-    if (!usage.allowed) {
-        return res.status(429).json({
-            error: 'Daily message limit reached.',
-            remaining: usage.remaining
-        });
-    }
-
-
-    const helperPrompt = `You are an AI assistant for students. Your goal is to help students understand concepts, brainstorm ideas, structure writing, or learn processes. You MUST NOT provide direct answers to homework questions, write essays/code for them, solve complex math problems step-by-step if it seems like homework, or do anything that would facilitate cheating. Instead, guide them, ask probing questions, explain underlying concepts, suggest resources, or help them break down the problem. Focus on fostering understanding and critical thinking. You can provide answers if the question does not seem like cheating or homework/schoolwork. Respond only to the user's query below, keeping these constraints in mind:\n\nUser Query: ${message}`;
-
-    try {
-      console.log(`Sending prompt to AI for user <span class="math-inline">\{userId\}\: "</span>{helperPrompt.substring(0, 100)}..."`);
-  
-      // --- Corrected fetch call for Google Gemini API ---
-      const fullUrl = `${AI_API_ENDPOINT}?key=${AI_API_KEY}`;
-  
-      const aiResponse = await fetch(fullUrl, { // Use the URL with the key
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-              // No 'Authorization' header needed for basic API key auth with Gemini
-          },
-          // Body structure for Gemini's generateContent
-          body: JSON.stringify({
-              contents: [{
-                  parts: [{
-                      text: helperPrompt // Send the combined prompt
-                  }]
-              }],
-              // Optional: Add generationConfig if needed (temperature, maxOutputTokens, etc.)
-              // generationConfig: {
-              //   temperature: 0.7,
-              //   maxOutputTokens: 250
-              // }
-          })
+      // Optionally: Add initial model greeting message to DB here
+      await db('conversation_messages').insert({
+           conversation_id: newConversation.id,
+           role: 'model',
+           content: 'How can I help you learn today?', // Consistent initial message
+           order: 0 // First message
       });
-  
-      if (!aiResponse.ok) {
-          const errorBody = await aiResponse.text();
-          console.error(`Gemini API Error (${aiResponse.status}): ${errorBody}`);
-          // Try parsing error if JSON
-          try {
-               const errorJson = JSON.parse(errorBody);
-               throw new Error(errorJson.error?.message || `Gemini API request failed with status ${aiResponse.status}`);
-          } catch(parseError) {
-               throw new Error(`Gemini API request failed with status ${aiResponse.status}`);
+
+      res.status(201).json(newConversation);
+  } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ error: "Failed to start conversation" });
+  }
+});
+
+// 2. List User's Conversations
+app.get('/api/conversations', isAuth, async (req, res) => {
+  const userId = req.userId;
+  try {
+      const conversations = await db('conversations')
+          .where({ user_id: userId })
+          .select('id', 'title', 'updated_at')
+          .orderBy('updated_at', 'desc');
+      res.json(conversations);
+  } catch (error) {
+      console.error("Error listing conversations:", error);
+      res.status(500).json({ error: "Failed to list conversations" });
+  }
+});
+
+// 3. Get History for a Specific Conversation
+app.get('/api/conversations/:conversationId', isAuth, async (req, res) => {
+  const userId = req.userId;
+  const { conversationId } = req.params;
+  try {
+      // Verify user owns this conversation
+      const conversation = await db('conversations')
+          .where({ id: conversationId, user_id: userId })
+          .first();
+
+      if (!conversation) {
+          return res.status(404).json({ error: 'Conversation not found or access denied.' });
+      }
+
+      const messages = await db('conversation_messages')
+          .where({ conversation_id: conversationId })
+          .orderBy('order', 'asc')
+          .select('role', 'content');
+
+      // Format for Gemini API (and potentially frontend)
+      const history = messages.map(msg => ({
+          role: msg.role,
+          parts: [{ text: msg.content }]
+      }));
+
+      res.json({ history }); // Send back the formatted history
+
+  } catch (error) {
+      console.error(`Error fetching history for conversation ${conversationId}:`, error);
+      res.status(500).json({ error: "Failed to fetch conversation history" });
+  }
+});
+
+// 4. Delete a Conversation
+app.delete('/api/conversations/:conversationId', isAuth, async (req, res) => {
+  const userId = req.userId;
+  const { conversationId } = req.params;
+  try {
+      // Verify user owns this conversation before deleting
+      const deletedCount = await db('conversations')
+          .where({ id: conversationId, user_id: userId })
+          .del();
+
+      if (deletedCount > 0) {
+          // Also delete associated messages (or use cascading delete in DB)
+          await db('conversation_messages')
+              .where({ conversation_id: conversationId })
+              .del();
+          res.status(200).json({ success: true, message: 'Conversation deleted.' });
+      } else {
+          res.status(404).json({ success: false, message: 'Conversation not found or access denied.' });
+      }
+  } catch (error) {
+      console.error(`Error deleting conversation ${conversationId}:`, error);
+      res.status(500).json({ error: "Failed to delete conversation" });
+  }
+});
+
+
+// --- MODIFIED: /api/chat Endpoint ---
+// Now needs conversationId and saves messages
+app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
+  // Get validated userId from middleware
+  const userIdFromDb = req.userId;
+  // Get other data from body
+  const { conversationId, newMessageText, extensionUserId } = req.body;
+
+  if (!conversationId || !newMessageText || !extensionUserId) {
+      return res.status(400).json({ error: 'conversationId, newMessageText, and extensionUserId are required.' });
+  }
+
+  let userIsAdmin = false;
+  try {
+      // Fetch admin status (if needed for rate limit - could be attached in isAuth)
+      const user = await db('users').where({ id: userIdFromDb }).select('is_admin').first();
+      if (!user) return res.status(404).json({ error: 'User not found.' }); // Should not happen if isAuth passed
+      userIsAdmin = user.is_admin === true;
+
+      // Verify user owns the conversation
+      const conversation = await db('conversations')
+           .where({ id: conversationId, user_id: userIdFromDb })
+           .first();
+      if (!conversation) {
+          return res.status(403).json({ error: 'Access denied to this conversation.' });
+      }
+
+  } catch (dbError) {
+       console.error("DB error checking user/conversation:", dbError);
+       return res.status(500).json({ error: 'Database error checking permissions.' });
+  }
+
+  // 1. Check Usage Limit (using extensionUserId as key, check admin status)
+  const usage = checkAndIncrementUsage(extensionUserId, userIsAdmin);
+  if (!usage.allowed) {
+      return res.status(429).json({ error: 'Daily message limit reached.', remaining: usage.remaining });
+  }
+
+  // --- Transaction: Fetch History, Save User Msg, Call AI, Save AI Msg ---
+  try {
+      let historyForApi = [];
+      let newAiMessageContent = '';
+
+      await db.transaction(async trx => {
+          // 2. Fetch existing messages for context
+          const messages = await trx('conversation_messages')
+              .where({ conversation_id: conversationId })
+              .orderBy('order', 'asc')
+              .select('role', 'content');
+
+          // Format for Gemini API
+           historyForApi = messages.map(msg => ({
+              role: msg.role,
+              parts: [{ text: msg.content }]
+          }));
+
+          // Determine next order number
+          const nextOrder = messages.length;
+
+          // 3. Save the new user message to DB
+          const userMessageForDb = {
+              conversation_id: conversationId,
+              role: 'user',
+              content: newMessageText,
+              order: nextOrder
+          };
+          await trx('conversation_messages').insert(userMessageForDb);
+
+           historyForApi.push({ role: "user", parts: [{ text: newMessageText }] });
+
+          const helperPromptPrefix = `You are an AI assistant for students. Your goal is to help students understand concepts, brainstorm ideas, structure writing, or learn processes. You MUST NOT provide direct answers to homework questions, write essays/code for them, solve complex math problems step-by-step if it seems like homework, or do anything that would facilitate cheating. Instead, guide them, ask probing questions, explain underlying concepts, suggest resources, or help them break down the problem. Focus on fostering understanding and critical thinking. You can provide answers if the question does not seem like cheating or homework/schoolwork. Respond only to the user's query below, keeping these constraints in mind:\n\nUser Query: `;
+          let finalHistoryForApi = JSON.parse(JSON.stringify(historyForApi)); // Deep copy
+          const lastMsgIndex = finalHistoryForApi.length -1;
+          if(lastMsgIndex >=0 && finalHistoryForApi[lastMsgIndex].role === 'user'){
+              finalHistoryForApi[lastMsgIndex].parts[0].text = helperPromptPrefix + finalHistoryForApi[lastMsgIndex].parts[0].text;
           }
-      }
-  
-      const aiData = await aiResponse.json();
-  
-      // Extract the text response from Gemini's structure
-      // See: https://ai.google.dev/api/rest/v1/models/generateContent#response-body
-      const aiMessage = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  
-      if (!aiMessage) {
-          console.error("Gemini response format unexpected or empty:", JSON.stringify(aiData, null, 2));
-          throw new Error("Failed to extract message from Gemini response.");
-      }
-  
-      console.log(`Received AI response for user <span class="math-inline">\{userId\}\: "</span>{aiMessage.substring(0, 100)}..."`);
-  
-      // Send Response Back to Frontend
+
+          const fullUrl = `${AI_API_ENDPOINT}?key=${AI_API_KEY}`;
+          const aiResponse = await fetch(fullUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: finalHistoryForApi })
+          });
+
+          if (!aiResponse.ok) {
+               const errorBody = await aiResponse.text();
+               console.error(`Gemini API Error (${aiResponse.status}): ${errorBody}`);
+               let errMsg = `Gemini API request failed with status ${aiResponse.status}`;
+               try { errMsg = JSON.parse(errorBody).error?.message || errMsg; } catch(e){}
+               throw new Error(errMsg); // Throw to trigger rollback
+          }
+          const aiData = await aiResponse.json();
+          newAiMessageContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+          if (!newAiMessageContent) {
+              console.error("Gemini response format unexpected:", JSON.stringify(aiData));
+              throw new Error("Failed to extract message from Gemini response."); // Trigger rollback
+          }
+
+          const aiMessageForDb = {
+              conversation_id: conversationId,
+              role: 'model',
+              content: newAiMessageContent,
+              order: nextOrder + 1 // Order after user message
+          };
+          await trx('conversation_messages').insert(aiMessageForDb);
+
+          await trx('conversations')
+              .where({ id: conversationId })
+              .update({ updated_at: trx.fn.now() });
+      }); // Transaction commits here if all steps succeed
+
       res.json({
-          reply: aiMessage,
+          reply: newAiMessageContent, // Send only the new reply
           remaining: usage.remaining
       });
-  
+
   } catch (error) {
-      // ... (existing error handling) ...
-       console.error("Error calling Gemini API:", error);
-       // Decrement usage count if AI call failed after incrementing
-       const userData = userUsage.get(userId);
-       if(userData) {
-           userData.count = Math.max(0, userData.count - 1); // Decrement safely
-           userUsage.set(userId, userData);
+      console.error("Error processing chat request:", error);
+       if (!userIsAdmin) {
+           const userData = userUsage.get(extensionUserId);
+           if(userData) {
+               userData.count = Math.max(0, userData.count - 1);
+               userUsage.set(extensionUserId, userData);
+           }
        }
-
-      if (!userIsAdmin) {
-        const userData = userUsage.get(userId);
-        if (userData) {
-          userData.count = Math.max(0, userData.count - 1); // Decrement safely
-          userUsage.set(userId, userData);
-        }
-      }
-
       res.status(500).json({
-        error: `Failed to get response from AI: ${error.message}`,
-        // Adjust remaining count (might be +1 if decrement happened)
-        remaining: userUsage.get(userId)?.count !== undefined ? 5 - userUsage.get(userId).count : messagesRemaining
-    });
+          error: `Failed to process chat: ${error.message}`,
+          remaining: usage.remaining // Or recalculate
+      });
   }
 });
 
