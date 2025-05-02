@@ -1267,38 +1267,29 @@ if (!AI_API_KEY || !AI_API_ENDPOINT) {
 
 const userUsage = new Map();
 
-function checkAndIncrementUsage(userId, isAdmin = false) {
-    const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
-    const userData = userUsage.get(userId);
-
-    if (isAdmin) {
-      console.log(`Admin user ${userId} bypassing usage limit.`);
-      // Return a high number for remaining, or maybe Infinity? Or just indicate bypass.
-      return { allowed: true, remaining: Infinity };
+function updateRemainingCount(count) {
+  if (count === Infinity || count === 'Infinity') { // Check for number or string representation
+      messagesRemaining = Infinity;
+      remainingCountSpan.textContent = 'Unlimited'; // Display something user-friendly
+      console.log("Admin user detected - Unlimited messages set.");
+  } else {
+      const numericCount = parseInt(count, 10);
+      messagesRemaining = Math.max(0, isNaN(numericCount) ? 0 : numericCount);
+      remainingCountSpan.textContent = messagesRemaining;
   }
 
-    if (userData) {
-        if (now - userData.timestamp > oneDay) {
-            console.log(`Resetting count for user ${userId}`);
-            userData.count = 0;
-            userData.timestamp = now;
-        }
+   const limitReached = (typeof messagesRemaining === 'number' && messagesRemaining <= 0);
 
-        if (userData.count >= 10) {
-            console.log(`User ${userId} reached daily limit.`);
-            return { allowed: false, remaining: 0 };
-        }
+   chatInput.disabled = limitReached;
+   sendButton.disabled = limitReached;
+   chatInput.placeholder = limitReached ? "Daily limit reached." : "Type your question...";
 
-        userData.count++;
-        userUsage.set(userId, userData); // Update map
-        console.log(`User ${userId} used message ${userData.count}/10`);
-        return { allowed: true, remaining: 10 - userData.count };
-    } else {
-        userUsage.set(userId, { count: 1, timestamp: now });
-        console.log(`User ${userId} used message 1/10`);
-        return { allowed: true, remaining: 9 };
-    }
+   if (!limitReached) {
+      if (loadingIndicator.style.display === 'none') {
+          chatInput.disabled = false;
+          sendButton.disabled = false;
+      }
+   }
 }
 
 // --- Add Authentication Middleware (Example - reuse/adapt isAdmin or create isAuth) ---
@@ -1398,7 +1389,6 @@ app.delete('/api/conversations/:conversationId', isAuth, async (req, res) => {
   const userId = req.userId;
   const { conversationId } = req.params;
   try {
-      // Verify user owns this conversation before deleting
       const deletedCount = await db('conversations')
           .where({ id: conversationId, user_id: userId })
           .del();
@@ -1419,12 +1409,8 @@ app.delete('/api/conversations/:conversationId', isAuth, async (req, res) => {
 });
 
 
-// --- MODIFIED: /api/chat Endpoint ---
-// Now needs conversationId and saves messages
 app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
-  // Get validated userId from middleware
   const userIdFromDb = req.userId;
-  // Get other data from body
   const { conversationId, newMessageText, extensionUserId } = req.body;
 
   if (!conversationId || !newMessageText || !extensionUserId) {
@@ -1451,7 +1437,6 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
        return res.status(500).json({ error: 'Database error checking permissions.' });
   }
 
-  // 1. Check Usage Limit (using extensionUserId as key, check admin status)
   const usage = checkAndIncrementUsage(extensionUserId, userIsAdmin);
   if (!usage.allowed) {
       return res.status(429).json({ error: 'Daily message limit reached.', remaining: usage.remaining });
@@ -1463,22 +1448,18 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
       let newAiMessageContent = '';
 
       await db.transaction(async trx => {
-          // 2. Fetch existing messages for context
           const messages = await trx('conversation_messages')
               .where({ conversation_id: conversationId })
               .orderBy('order', 'asc')
               .select('role', 'content');
 
-          // Format for Gemini API
            historyForApi = messages.map(msg => ({
               role: msg.role,
               parts: [{ text: msg.content }]
           }));
 
-          // Determine next order number
           const nextOrder = messages.length;
 
-          // 3. Save the new user message to DB
           const userMessageForDb = {
               conversation_id: conversationId,
               role: 'user',
