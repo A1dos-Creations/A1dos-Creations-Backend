@@ -1549,9 +1549,16 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
               .update({ updated_at: trx.fn.now() });
       }); // Transaction commits here if all steps succeed
 
+      let remainingValueToSend = usage.remaining;
+      if (usage.remaining === Infinity) {
+        remainingValueToSend = 'Unlimited'; 
+      } else {
+        remainingValueToSend = usage.remaining;
+      }
+
       res.json({
           reply: newAiMessageContent, // Send only the new reply
-          remaining: usage.remaining
+          remaining: remainingValueToSend
       });
 
   } catch (error) {
