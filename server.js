@@ -1437,7 +1437,7 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
        return res.status(500).json({ error: 'Database error checking permissions.' });
   }
 
-  const usage = checkAndIncrementUsage(extensionUserId, userIsAdmin);
+  const usage = updateRemainingCount(extensionUserId, userIsAdmin);
   if (!usage.allowed) {
       return res.status(429).json({ error: 'Daily message limit reached.', remaining: usage.remaining });
   }
