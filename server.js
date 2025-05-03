@@ -14,6 +14,8 @@ import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+import uuidv4 from 'uuid';
+const { v4: uuid } = uuidv4;
 
 import session from 'express-session';
 const PgSessionStore = require('connect-pg-simple')(session);
@@ -1575,6 +1577,120 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
           remaining: usage.remaining // Or recalculate
       });
   }
+});
+
+const boards = {};
+
+app.post('/boards', (req, res) => {
+  const newBoardId = uuidv4();
+      // Initialize board data in memory
+      boards[newBoardId] = {
+        clients: new Set(),
+        elements: [], // Optionally store elements server-side
+    };
+    console.log(`Board created: ${newBoardId}`);
+    res.status(201).json({ boardId: newBoardId });
+})
+
+console.log('WebSocket server attaching...');
+
+wss.on('connection', (ws, req) => {
+    // Extract boardId from the URL (e.g., /ws/board-uuid-123)
+    const pathname = url.parse(req.url).pathname;
+    const pathParts = pathname.split('/'); // ['', 'ws', 'boardId']
+    const boardId = pathParts[2];
+
+    if (!boardId || !boards[boardId]) {
+        console.log(`Connection attempt failed: Invalid or unknown boardId "${boardId}"`);
+        ws.terminate(); // Close connection if board doesn't exist
+        return;
+    }
+
+    console.log(`Client connected to board: ${boardId}`);
+
+    // Add client to the board's client set
+    boards[boardId].clients.add(ws);
+
+    // --- Optional: Send initial state ---
+    // If you store elements server-side, send them to the new client
+    // ws.send(JSON.stringify({
+    //     type: 'initial_state',
+    //     payload: { elements: boards[boardId].elements || [] }
+    // }));
+    // For now, relying on frontend to sync via broadcasts
+
+    // --- Message Handling ---
+    ws.on('message', (message) => {
+        try {
+            // Try parsing to handle potential binary data or malformed JSON
+            const parsedMessage = JSON.parse(message.toString());
+            console.log(`Received on board ${boardId}:`, parsedMessage.type, parsedMessage.actionId || '');
+
+            // Basic validation (add more as needed)
+            if (!parsedMessage.type || !parsedMessage.payload) {
+                console.warn(`Invalid message format received on board ${boardId}`);
+                return;
+            }
+
+            // --- Optional: Server-side state update ---
+            // If managing state server-side, update `boards[boardId].elements` here
+            // based on parsedMessage.type and parsedMessage.payload
+            // e.g., if (parsedMessage.type === 'element_add') boards[boardId].elements.push(parsedMessage.payload)
+
+            // --- Broadcast message to other clients on the *same* board ---
+            boards[boardId].clients.forEach(client => {
+                // Send to clients other than the sender?
+                // The frontend has echo detection via actionId, so sending to all is ok.
+                // If frontend didn't handle echo: if (client !== ws && client.readyState === WebSocket.OPEN) {
+                if (client.readyState === WebSocket.OPEN) {
+                   client.send(message.toString()); // Forward the original message string
+                }
+            });
+
+        } catch (error) {
+            console.error(`Failed to process message on board ${boardId}:`, error);
+            // Consider sending an error back to the client:
+            // ws.send(JSON.stringify({ type: 'error', payload: { message: 'Invalid message format' } }));
+        }
+    });
+
+    // --- Close Handling ---
+    ws.on('close', () => {
+        console.log(`Client disconnected from board: ${boardId}`);
+        // Remove client from the board's set
+        if (boards[boardId]) {
+            boards[boardId].clients.delete(ws);
+
+            // --- Optional: Clean up empty boards ---
+            if (boards[boardId].clients.size === 0) {
+                console.log(`Board empty, removing: ${boardId}`);
+                // Add a delay or check persistence strategy before deleting in production
+                // For in-memory, we can delete it directly
+                 delete boards[boardId];
+            }
+        }
+    });
+
+    // --- Error Handling ---
+    ws.on('error', (error) => {
+        console.error(`WebSocket error on board ${boardId}:`, error);
+        // Ensure cleanup happens on error too
+        if (boards[boardId]) {
+            boards[boardId].clients.delete(ws);
+             if (boards[boardId].clients.size === 0) {
+                 console.log(`Board empty after error, removing: ${boardId}`);
+                 delete boards[boardId];
+             }
+        }
+    });
+});
+
+wss.on('listening', () => {
+    console.log('WebSocket server is listening.');
+});
+
+wss.on('error', (error) => {
+    console.error('WebSocket Server Error:', error);
 });
 
 const PORT = process.env.PORT || 3002;
