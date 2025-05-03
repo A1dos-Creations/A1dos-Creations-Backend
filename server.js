@@ -38,7 +38,8 @@ const allowedOrigins = [
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
   'http://127.0.0.1:3000',
-  'localhost:3000'
+  'localhost:3000',
+  'http://192.168.70.1:3000'
 ];
 
 const app = express();
