@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
+import expressWs from 'express-ws'; // Import express-ws
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import knex from 'knex';
@@ -1581,97 +1582,87 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
   }
 });
 
-const boards = {};
+const wsInstance = expressWs(app, server);
+// Option 2 (Alternative): Let express-ws manage the server internally (less common if you already created 'server')
+// const wsInstance = expressWs(app);
+// const app = wsInstance.app; // Use the app instance returned by express-ws if using Option 2
 
+// === In-Memory Storage ===
+const boards = {};
+// { "boardId1": { clients: Set<WebSocket> } }
+
+// === Middleware ===
+app.use(cors()); // Keep CORS for HTTP requests
+app.use(express.json());
+
+// === REST API Endpoints ===
 app.get('/api/health', (req, res) => {
-  res.status(200).send('OK');
+    res.status(200).send('OK');
 });
 
 app.post('/api/boards', (req, res) => {
-  const newBoardId = uuidv4();
-      // Initialize board data in memory
-      boards[newBoardId] = {
+    const newBoardId = uuidv4();
+    boards[newBoardId] = {
         clients: new Set(),
-        elements: [], // Optionally store elements server-side
+        elements: [],
     };
     console.log(`Board created: ${newBoardId}`);
     res.status(201).json({ boardId: newBoardId });
-})
+});
 
-console.log('WebSocket server attaching...');
+// === WebSocket Endpoint using express-ws ===
+// Define a WebSocket route similar to HTTP routes
+// Note: We are now defining the path here explicitly.
+// We'll try BOTH the /ws/:boardId path AND the root /:boardId path
+// based on our previous testing. Render might respond to one.
 
-wss.on('connection', (ws, req) => {
-    // Extract boardId from the URL (e.g., /ws/board-uuid-123)
-    const pathname = url.parse(req.url).pathname;
-    const pathParts = pathname.split('/'); // ['', 'ws', 'boardId']
-    const boardId = pathParts[2];
+const handleWsConnection = (ws, req, boardId) => {
+     // Note: WebSocket class instance 'ws' is passed directly
+     // The 'req' object is the *initial* HTTP upgrade request object
 
+    // 1. Validate Board ID
     if (!boardId || !boards[boardId]) {
-        console.log(`Connection attempt failed: Invalid or unknown boardId "${boardId}"`);
-        ws.terminate(); // Close connection if board doesn't exist
+        console.log(`WS Route: Connection attempt failed: Invalid or unknown boardId "${boardId}" for URL ${req.originalUrl}`);
+        ws.terminate();
         return;
     }
 
-    console.log(`Client connected to board: ${boardId}`);
+    console.log(`WS Route: Client connected to board: ${boardId} via URL ${req.originalUrl}`);
 
-    // Add client to the board's client set
+    // 2. Add client to the board's client set
     boards[boardId].clients.add(ws);
-
-    // --- Optional: Send initial state ---
-    // If you store elements server-side, send them to the new client
-    // ws.send(JSON.stringify({
-    //     type: 'initial_state',
-    //     payload: { elements: boards[boardId].elements || [] }
-    // }));
-    // For now, relying on frontend to sync via broadcasts
 
     // --- Message Handling ---
     ws.on('message', (message) => {
         try {
-            // Try parsing to handle potential binary data or malformed JSON
             const parsedMessage = JSON.parse(message.toString());
-            console.log(`Received on board ${boardId}:`, parsedMessage.type, parsedMessage.actionId || '');
+            console.log(`WS Route: Received on board ${boardId}:`, parsedMessage.type, parsedMessage.actionId || '');
 
-            // Basic validation (add more as needed)
             if (!parsedMessage.type || !parsedMessage.payload) {
-                console.warn(`Invalid message format received on board ${boardId}`);
+                console.warn(`WS Route: Invalid message format received on board ${boardId}`);
                 return;
             }
 
-            // --- Optional: Server-side state update ---
-            // If managing state server-side, update `boards[boardId].elements` here
-            // based on parsedMessage.type and parsedMessage.payload
-            // e.g., if (parsedMessage.type === 'element_add') boards[boardId].elements.push(parsedMessage.payload)
-
-            // --- Broadcast message to other clients on the *same* board ---
+            // --- Broadcast ---
             boards[boardId].clients.forEach(client => {
-                // Send to clients other than the sender?
-                // The frontend has echo detection via actionId, so sending to all is ok.
-                // If frontend didn't handle echo: if (client !== ws && client.readyState === WebSocket.OPEN) {
-                if (client.readyState === WebSocket.OPEN) {
-                   client.send(message.toString()); // Forward the original message string
+                // Check readyState using the WebSocket class from the instance
+                if (client.readyState === ws.constructor.OPEN) {
+                   client.send(message.toString());
                 }
             });
 
         } catch (error) {
-            console.error(`Failed to process message on board ${boardId}:`, error);
-            // Consider sending an error back to the client:
-            // ws.send(JSON.stringify({ type: 'error', payload: { message: 'Invalid message format' } }));
+            console.error(`WS Route: Failed to process message on board ${boardId}:`, error);
         }
     });
 
     // --- Close Handling ---
     ws.on('close', () => {
-        console.log(`Client disconnected from board: ${boardId}`);
-        // Remove client from the board's set
+        console.log(`WS Route: Client disconnected from board: ${boardId}`);
         if (boards[boardId]) {
             boards[boardId].clients.delete(ws);
-
-            // --- Optional: Clean up empty boards ---
             if (boards[boardId].clients.size === 0) {
-                console.log(`Board empty, removing: ${boardId}`);
-                // Add a delay or check persistence strategy before deleting in production
-                // For in-memory, we can delete it directly
+                console.log(`WS Route: Board empty, removing: ${boardId}`);
                  delete boards[boardId];
             }
         }
@@ -1679,25 +1670,31 @@ wss.on('connection', (ws, req) => {
 
     // --- Error Handling ---
     ws.on('error', (error) => {
-        console.error(`WebSocket error on board ${boardId}:`, error);
-        // Ensure cleanup happens on error too
+        console.error(`WS Route: WebSocket error on board ${boardId}:`, error);
+        // Cleanup on error
         if (boards[boardId]) {
             boards[boardId].clients.delete(ws);
-             if (boards[boardId].clients.size === 0) {
-                 console.log(`Board empty after error, removing: ${boardId}`);
+             if (boards[boardId]?.clients.size === 0) {
+                 console.log(`WS Route: Board empty after error, removing: ${boardId}`);
                  delete boards[boardId];
              }
         }
     });
+};
+
+// Define route for /ws/:boardId
+app.ws('/ws/:boardId', (ws, req) => {
+    const boardId = req.params.boardId;
+    handleWsConnection(ws, req, boardId);
 });
 
-wss.on('listening', () => {
-    console.log('WebSocket server is listening.');
+// Define route for /:boardId (root path test)
+app.ws('/:boardId', (ws, req) => {
+    const boardId = req.params.boardId;
+     // Add extra logging to see if this specific route handler is even hit
+    console.log(`Root WS route /:boardId hit for board: ${boardId}`);
+    handleWsConnection(ws, req, boardId);
 });
 
-wss.on('error', (error) => {
-    console.error('WebSocket Server Error:', error);
-});
-
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
