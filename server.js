@@ -14,8 +14,8 @@ import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-import uuidv4 from 'uuid';
-const { v4: uuid } = uuidv4;
+import { v4 as uuidv4 } from 'uuid';
+import url from 'url';
 
 import session from 'express-session';
 const PgSessionStore = require('connect-pg-simple')(session);
@@ -1582,7 +1582,11 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
 
 const boards = {};
 
-app.post('/boards', (req, res) => {
+app.get('/api/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.post('/api/boards', (req, res) => {
   const newBoardId = uuidv4();
       // Initialize board data in memory
       boards[newBoardId] = {
