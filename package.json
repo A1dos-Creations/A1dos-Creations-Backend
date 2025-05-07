@@ -1,7 +1,7 @@
 {
-  "name": "login-api",
-  "version": "1.3.1",
-  "description": "Login API for STL and A1 Main website.",
+  "name": "a1dos-backend",
+  "version": "1.3.3",
+  "description": "API for STL and A1 Main website.",
   "license": "ISC",
   "author": "A1dos-Creations 2025",
   "type": "module",
@@ -11,13 +11,13 @@
   },
   "dependencies": {
     "@google/genai": "^0.10.0",
-    "@sendgrid/mail": "^8.1.4",
+    "@sendgrid/mail": "^8.1.5",
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "express-ws": "^5.0.2",
@@ -26,13 +26,16 @@
     "knex": "^3.1.0",
     "nodemailer": "^6.10.0",
     "nodemon": "^3.1.9",
-    "pg": "^8.13.3",
+    "pg": "^8.15.6",
     "router": "^2.1.0",
+    "socket.io": "^4.7.5",
     "stripe": "^17.7.0",
     "twilio": "^5.4.5",
+    "uuid": "^9.0.1",
     "ws": "^8.18.1"
   },
   "devDependencies": {
-    "javascript-obfuscator": "^4.1.1"
+    "javascript-obfuscator": "^4.1.1",
+    "nodemon": "^3.1.0"
   }
 }

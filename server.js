@@ -69,6 +69,29 @@ app.use(session({
   cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
+app.post('/webhook', bodyParser.raw({ type: 'application/json' }), handleStripeWebhook);
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Expecting "Bearer TOKEN"
+
+  if (token == null) {
+      return res.status(401).json({ success: false, message: 'Authentication token is required.' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, userPayload) => {
+      if (err) {
+          console.error('JWT Verification Error:', err.message);
+          return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+      }
+      // The 'userPayload' should contain the user's ID (e.g., as 'id' or 'userId')
+      // This depends on how you create your JWT upon login.
+      // Assuming payload has { id: userId, email: userEmail, ... }
+      req.user = userPayload; // Make user info available in request object
+      next();
+  });
+};
+
 /*
 app.use('/api', classesRouter);
 app.use('/api', assignmentsRouter);
@@ -127,6 +150,232 @@ app.use('/movies', rsvpDataRouter);
 app.use((req, res) => {
   res.status(404).send("Page not found");
 });*/
+
+// --- Stripe Webhook Handler ---
+async function handleStripeWebhook(req, res) {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let event;
+
+  try {
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+      console.error(`Webhook signature verification failed: ${err.message}`);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  console.log(`Received Stripe event: ${event.type}`);
+  let session, customerId, userEmailFromStripe, clientReferenceId, subscription, userId, recipientEmail;
+
+  switch (event.type) {
+      case 'checkout.session.completed':
+          session = event.data.object;
+          customerId = session.customer;
+          userEmailFromStripe = session.customer_details?.email;
+          clientReferenceId = session.client_reference_id; // Your internal user ID
+
+          if (!customerId) {
+              console.error('[checkout.session.completed] Customer ID not found.');
+              return res.status(400).send('Customer ID missing.');
+          }
+          break;
+
+      case 'invoice.payment_succeeded':
+          session = event.data.object;
+          customerId = session.customer;
+          userEmailFromStripe = session.customer_email;
+          if (session.billing_reason === 'subscription_create' || session.billing_reason === 'subscription_cycle') {
+               // This is a subscription payment
+          } else {
+              console.log(`[invoice.payment_succeeded] Not a subscription-related payment reason: ${session.billing_reason}. Skipping code generation.`);
+              return res.status(200).send('Event received, but not a subscription trigger for code.');
+          }
+          break;
+
+      case 'customer.subscription.deleted':
+          subscription = event.data.object;
+          customerId = subscription.customer;
+          try {
+              const userResult = await pool.query('SELECT id FROM users WHERE stripe_customer_id = $1', [customerId]);
+              if (userResult.rowCount > 0) {
+                  userId = userResult.rows[0].id;
+                  await pool.query('UPDATE users SET is_premium = FALSE WHERE id = $1', [userId]);
+                  console.log(`User ID ${userId} premium status revoked due to subscription deletion (Stripe Customer ID: ${customerId}).`);
+              } else {
+                  console.warn(`Subscription deleted for Stripe Customer ID ${customerId}, but no matching user found in DB.`);
+              }
+          } catch (err) {
+              console.error('Error handling subscription deletion:', err);
+          }
+          return res.status(200).send('Subscription deletion processed.');
+
+      default:
+          console.log(`Unhandled event type ${event.type}.`);
+          return res.status(200).send(`Unhandled event type: ${event.type}`);
+  }
+
+  if (!customerId) {
+       console.log("No customer ID, skipping further processing for this event.");
+       return res.status(200).send("No customer ID for further processing.");
+  }
+
+  try {
+      if (clientReferenceId) {
+          const userQuery = await pool.query('SELECT id, email FROM users WHERE id = $1', [clientReferenceId]);
+          if (userQuery.rowCount > 0) {
+              userId = userQuery.rows[0].id;
+              recipientEmail = userQuery.rows[0].email;
+              await pool.query(
+                  'UPDATE users SET stripe_customer_id = $1 WHERE id = $2 AND (stripe_customer_id IS NULL OR stripe_customer_id != $1)',
+                  [customerId, userId]
+              );
+          }
+      } else if (userEmailFromStripe) {
+          const userQuery = await pool.query(
+              `INSERT INTO users (email, stripe_customer_id)
+               VALUES ($1, $2)
+               ON CONFLICT (email) DO UPDATE
+               SET stripe_customer_id = EXCLUDED.stripe_customer_id, updated_at = NOW()
+               WHERE users.stripe_customer_id IS NULL OR users.stripe_customer_id != EXCLUDED.stripe_customer_id
+               RETURNING id, email`,
+              [userEmailFromStripe, customerId]
+          );
+          if (userQuery.rowCount > 0) {
+              userId = userQuery.rows[0].id;
+              recipientEmail = userQuery.rows[0].email;
+              console.log(`User ${userId} (${recipientEmail}) found/created/updated with Stripe customer ID ${customerId}.`);
+          }
+      }
+
+      if (!userId || !recipientEmail) {
+          console.error(`User could not be definitively identified or created for Stripe customer ${customerId}. Code not generated.`);
+          return res.status(404).send('User not found or could not be linked to Stripe customer.');
+      }
+
+      const productCode = uuidv4().toUpperCase().replace(/-/g, '').substring(0, 12);
+      const stripeSubscriptionId = session.subscription || (event.data.object.lines?.data[0]?.subscription) || null;
+
+      await pool.query(
+          'INSERT INTO subscription_codes (user_id, code, stripe_subscription_id) VALUES ($1, $2, $3)',
+          [userId, productCode, stripeSubscriptionId]
+      );
+      console.log(`Stored product code ${productCode} for user ID ${userId}`);
+
+      const msg = {
+          to: recipientEmail,
+          from: {
+              email: process.env.SENDGRID_FROM_EMAIL,
+              name: process.env.APP_NAME || 'Your App'
+          },
+          subject: `Your ${process.env.APP_NAME || 'App'} Subscription Activation Code`,
+          html: `<h1>Thank you for subscribing...<strong>${productCode}</strong>...</p>`,
+      };
+      await sgMail.send(msg);
+      console.log(`Activation email sent to ${recipientEmail} via SendGrid.`);
+
+  } catch (error) {
+      console.error('Error in webhook user processing or email sending:', error.response?.body || error.message);
+      if (error.response && error.response.body && error.response.body.errors) {
+          console.error('SendGrid specific errors:', error.response.body.errors);
+      }
+      return res.status(500).send('Internal server error during webhook processing.');
+  }
+  res.status(200).send('Webhook processed successfully.');
+}
+
+// --- API Endpoint to Claim a Product Code (Protected by Auth Middleware) ---
+app.post('/api/claim-code', authenticateToken, async (req, res) => {
+  // userId is now available from req.user (set by authenticateToken middleware)
+  const userId = req.user.id; // Assuming your JWT payload has an 'id' field for the user ID
+  const { code } = req.body;
+
+  if (!code) {
+      return res.status(400).json({ success: false, message: 'Product code is required.' });
+  }
+  if (!userId) { // Should be caught by authenticateToken, but good to double-check
+      return res.status(401).json({ success: false, message: 'User not authenticated.' });
+  }
+
+  const client = await pool.connect();
+  try {
+      await client.query('BEGIN');
+
+      // Check if the code belongs to the authenticated user
+      const codeResult = await client.query(
+          'SELECT id, user_id, is_claimed FROM subscription_codes WHERE code = $1 AND user_id = $2',
+          [code.trim().toUpperCase(), parseInt(userId)]
+      );
+
+      if (codeResult.rowCount === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ success: false, message: 'Invalid product code or code not assigned to this user.' });
+      }
+
+      const codeData = codeResult.rows[0];
+
+      if (codeData.is_claimed) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ success: false, message: 'This code has already been claimed.' });
+      }
+
+      // Mark the code as claimed
+      await client.query(
+          'UPDATE subscription_codes SET is_claimed = TRUE, claimed_at = NOW() WHERE id = $1',
+          [codeData.id]
+      );
+
+      // Update the user's status to premium
+      const updateUserResult = await client.query(
+          'UPDATE users SET is_premium = TRUE WHERE id = $1',
+          [parseInt(userId)]
+      );
+
+      if (updateUserResult.rowCount === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ success: false, message: 'User account not found to update premium status.' });
+      }
+
+      await client.query('COMMIT');
+      res.json({ success: true, message: 'Code claimed successfully! Premium features unlocked.' });
+
+  } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error claiming code:', error);
+      res.status(500).json({ success: false, message: 'Internal server error. Please try again.' });
+  } finally {
+      client.release();
+  }
+});
+
+
+// --- API Endpoint to check current user's premium status (Protected by Auth Middleware) ---
+// Changed from /api/user-status/:userId to /api/me/status or /api/user/status
+app.get('/api/me/status', authenticateToken, async (req, res) => {
+  const userId = req.user.id; // Get userId from the authenticated token payload
+
+  if (!userId) { // Should be caught by middleware
+      return res.status(401).json({ success: false, message: 'User not authenticated.' });
+  }
+
+  try {
+      const result = await pool.query('SELECT email, is_premium, stripe_customer_id FROM users WHERE id = $1', [parseInt(userId)]);
+      if (result.rows.length > 0) {
+          res.json({
+              success: true,
+              userId: parseInt(userId),
+              email: result.rows[0].email,
+              is_premium: result.rows[0].is_premium,
+              stripe_customer_id: result.rows[0].stripe_customer_id
+          });
+      } else {
+          // This case means the token has a userId that doesn't exist in DB, which is an issue.
+          res.status(404).json({ success: false, is_premium: false, message: 'User from token not found in database.' });
+      }
+  } catch (error) {
+      console.error('Error fetching user status:', error);
+      res.status(500).json({ success: false, is_premium: false, message: 'Internal server error' });
+  }
+});
 
 const schoolData = {
   "CCUSD": ["Culver City Middle School (CCMS)", "Culver City High School (CCHS)", "El Marino Language School", "El Rincon Elementary School", "Farragut Elementary School", "La Ballona Elementary School", "Linwood E. Howe Elementary School"],
@@ -1600,101 +1849,151 @@ app.get('/api/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-app.post('/api/boards', (req, res) => {
-    const newBoardId = uuidv4();
-    boards[newBoardId] = {
-        clients: new Set(),
-        elements: [],
-    };
-    console.log(`Board created: ${newBoardId}`);
-    res.status(201).json({ boardId: newBoardId });
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const BACKEND_HOST = process.env.RENDER_EXTERNAL_URL || `https://api.a1dos-creations.com/`;
+
+const io = new Server(server, {
+  cors: {
+      origin: FRONTEND_URL,
+      methods: ["GET", "POST"],
+      credentials: true
+  },
+  // Consider adjusting limits if needed, especially for base64 images
+  // maxHttpBufferSize: 1e7, // Example: 10 MB limit
+  // pingTimeout: 60000, // Increase timeout if needed
 });
 
-// === WebSocket Endpoint using express-ws ===
-// Define a WebSocket route similar to HTTP routes
-// Note: We are now defining the path here explicitly.
-// We'll try BOTH the /ws/:boardId path AND the root /:boardId path
-// based on our previous testing. Render might respond to one.
+// --- Socket.IO Event Handling ---
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.id}`);
 
-const handleWsConnection = (ws, req, boardId) => {
-     // Note: WebSocket class instance 'ws' is passed directly
-     // The 'req' object is the *initial* HTTP upgrade request object
+  socket.on('join:board', async (boardId) => {
+      if (!boardId) {
+          console.error(`[${socket.id}] Error: boardId is required to join.`);
+          socket.emit('error:joining', { message: 'Board ID is required.' });
+          return;
+      }
 
-    // 1. Validate Board ID
-    if (!boardId || !boards[boardId]) {
-        console.log(`WS Route: Connection attempt failed: Invalid or unknown boardId "${boardId}" for URL ${req.originalUrl}`);
-        ws.terminate();
-        return;
-    }
+      try {
+          // Attempt to fetch elements. This implicitly checks/creates the board via dbStore.
+          // If boardId format is invalid, getBoardElements will throw an error.
+          const currentElements = await dbStore.getBoardElements(boardId);
 
-    console.log(`WS Route: Client connected to board: ${boardId} via URL ${req.originalUrl}`);
+          // If successful (even if board was just created and elements is empty), join the room
+          socket.join(boardId);
+          console.log(`User ${socket.id} joined board: ${boardId}`);
 
-    // 2. Add client to the board's client set
-    boards[boardId].clients.add(ws);
+          // Send current board state to the newly joined user
+          socket.emit('board:init', currentElements);
+          // console.log(`Sent initial state for board ${boardId} to ${socket.id}`);
 
-    // --- Message Handling ---
-    ws.on('message', (message) => {
-        try {
-            const parsedMessage = JSON.parse(message.toString());
-            console.log(`WS Route: Received on board ${boardId}:`, parsedMessage.type, parsedMessage.actionId || '');
+      } catch (error) {
+          console.error(`[${socket.id}] Error joining board ${boardId}:`, error.message);
+          // Notify the client about the error (e.g., invalid ID format)
+          socket.emit('error:joining', { message: `Failed to join board: ${error.message}` });
+      }
+  });
 
-            if (!parsedMessage.type || !parsedMessage.payload) {
-                console.warn(`WS Route: Invalid message format received on board ${boardId}`);
-                return;
-            }
+  socket.on('element:add', async ({ boardId, element }) => {
+      if (!boardId || !element || !element.id) {
+          console.error(`[${socket.id}] Invalid element:add data:`, { boardId, elementId: element?.id });
+          return; // Don't proceed if data is invalid
+      }
+      try {
+          const added = await dbStore.addElement(boardId, element);
+          if (added) {
+              // Broadcast the new element to all *other* clients in the room
+              socket.to(boardId).emit('element:add', element);
+              // console.log(`[${boardId}] Broadcasted add element: ${element.id} from ${socket.id}`);
+          } else {
+               console.warn(`[${boardId}] Failed to add element ${element.id} via socket ${socket.id} (possibly duplicate or DB error)`);
+               // Optionally notify sender of failure
+               // socket.emit('element:add:failed', { elementId: element.id, reason: 'Failed to save element.' });
+          }
+      } catch (error) {
+           console.error(`[${socket.id}] Error handling element:add for board ${boardId}:`, error);
+           // Optionally notify sender
+           // socket.emit('element:add:failed', { elementId: element?.id, reason: 'Server error during add.' });
+      }
+  });
 
-            // --- Broadcast ---
-            boards[boardId].clients.forEach(client => {
-                // Check readyState using the WebSocket class from the instance
-                if (client.readyState === ws.constructor.OPEN) {
-                   client.send(message.toString());
-                }
-            });
+  socket.on('element:update', async ({ boardId, element }) => {
+      if (!boardId || !element || !element.id) {
+          console.error(`[${socket.id}] Invalid element:update data:`, { boardId, elementId: element?.id });
+          return;
+      }
+      try {
+          const updated = await dbStore.updateElement(boardId, element);
+          if (updated) {
+              // Broadcast the updated element to all *other* clients in the room
+              socket.to(boardId).emit('element:update', element);
+              // console.log(`[${boardId}] Broadcasted update element: ${element.id} from ${socket.id}`);
+          } else {
+               console.warn(`[${boardId}] Failed to update element ${element.id} via socket ${socket.id} (not found or DB error)`);
+               // Optionally notify sender
+          }
+      } catch (error) {
+           console.error(`[${socket.id}] Error handling element:update for board ${boardId}:`, error);
+           // Optionally notify sender
+      }
+  });
 
-        } catch (error) {
-            console.error(`WS Route: Failed to process message on board ${boardId}:`, error);
-        }
-    });
+  socket.on('element:delete', async ({ boardId, elementId }) => {
+      if (!boardId || !elementId) {
+           console.error(`[${socket.id}] Invalid element:delete data:`, { boardId, elementId });
+          return;
+      }
+      try {
+          const deleted = await dbStore.deleteElement(boardId, elementId);
+          if (deleted) {
+              // Broadcast the ID of the deleted element to all *other* clients
+              socket.to(boardId).emit('element:delete', elementId);
+              // console.log(`[${boardId}] Broadcasted delete element: ${elementId} from ${socket.id}`);
+          } else {
+               console.warn(`[${boardId}] Failed to delete element ${elementId} via socket ${socket.id} (not found or DB error)`);
+               // Optionally notify sender
+          }
+      } catch (error) {
+           console.error(`[${socket.id}] Error handling element:delete for board ${boardId}:`, error);
+           // Optionally notify sender
+      }
+  });
 
-    // --- Close Handling ---
-    ws.on('close', () => {
-        console.log(`WS Route: Client disconnected from board: ${boardId}`);
-        if (boards[boardId]) {
-            boards[boardId].clients.delete(ws);
-            if (boards[boardId].clients.size === 0) {
-                console.log(`WS Route: Board empty, removing: ${boardId}`);
-                 delete boards[boardId];
-            }
-        }
-    });
 
-    // --- Error Handling ---
-    ws.on('error', (error) => {
-        console.error(`WS Route: WebSocket error on board ${boardId}:`, error);
-        // Cleanup on error
-        if (boards[boardId]) {
-            boards[boardId].clients.delete(ws);
-             if (boards[boardId]?.clients.size === 0) {
-                 console.log(`WS Route: Board empty after error, removing: ${boardId}`);
-                 delete boards[boardId];
-             }
-        }
-    });
-};
+  socket.on('disconnect', (reason) => {
+      console.log(`User disconnected: ${socket.id}. Reason: ${reason}`);
+      // socket.io automatically handles leaving rooms on disconnect
+  });
 
-// Define route for /ws/:boardId
-app.ws('/ws/:boardId', (ws, req) => {
-    const boardId = req.params.boardId;
-    handleWsConnection(ws, req, boardId);
-});
+  socket.on('error', (err) => {
+      console.error(`[${socket.id}] Socket Error:`, err);
+  });
 
-// Define route for /:boardId (root path test)
-app.ws('/:boardId', (ws, req) => {
-    const boardId = req.params.boardId;
-     // Add extra logging to see if this specific route handler is even hit
-    console.log(`Root WS route /:boardId hit for board: ${boardId}`);
-    handleWsConnection(ws, req, boardId);
+  // Handle connection errors more explicitly if needed
+  socket.on('connect_error', (err) => {
+      // This often happens due to CORS issues or server unavailability during connection attempt
+      console.error(`[${socket.id}] Connection Error: ${err.message}`, err.data);
+  });
 });
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Graceful shutdown handling (optional but good practice for Render)
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  io.close(() => { // Close socket connections first
+      console.log('Socket.IO server closed.');
+      server.close(() => {
+          console.log('HTTP server closed.');
+          // Close database pool
+          require('./db').pool.end().then(() => { // Assuming pool is exported directly for this
+              console.log('Database pool closed.');
+              process.exit(0);
+          }).catch(err => {
+              console.error('Error closing database pool:', err);
+              process.exit(1);
+          });
+      });
+  });
+});
