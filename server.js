@@ -69,7 +69,7 @@ app.use(session({
   cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
-app.post('/webhook', bodyParser.raw({ type: 'application/json' }), handleStripeWebhook);
+app.post('/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
