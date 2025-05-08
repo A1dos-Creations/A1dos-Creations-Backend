@@ -1850,7 +1850,7 @@ app.get('/api/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://a1dos-creations.com";
 const BACKEND_HOST = process.env.RENDER_EXTERNAL_URL || `https://api.a1dos-creations.com/`;
 
 const io = new Server(server, {
