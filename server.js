@@ -449,7 +449,7 @@ app.post("/request-email-change", async (req, res) => {
 
     const msg = {
       to: newEmail,
-      from: 'admin@a1dos-creations.com',
+      from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
       subject: `Change Email for ${user.name}`,
       html: `
       <div style="justify-items:center;">
@@ -550,8 +550,8 @@ app.post('/send-verification-code', async (req, res) => {
 
         const msg = {
             to: email,
-            from: 'admin@a1dos-creations.com',
-            subject: `${user.name} Password Change Verification Code`,
+            from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
+            subject: `Password Change Request`,
             html: `
             <div style="justify-items:center;">
                 <tr height="32" style="height:32px">
@@ -639,7 +639,7 @@ app.post('/update-password', async (req, res) => {
 
       const msg = {
         to: email,
-        from: 'admin@a1dos-creations.com',
+        from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
         subject: `${user.name} Password Changed`,
         html: `
                 <tr height="32" style="height:32px"><td></td></tr>
@@ -714,36 +714,40 @@ app.post('/register-user', async (req, res) => {
     
     const msg = {
       to: email,
-      from: 'admin@a1dos-creations.com',
+      from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
       subject: `🚀 Welcome to A1dos Creations, ${newUser.name}! ✨`,
       html: `
                 <tr height="32" style="height:32px"><td></td></tr>
-                <tr align="center">
-                <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px">
-                <tbody>
-                <tr>
-                <td width="8" style="width:8px"></td>
-                <td>
-                <br>
-                <br>
-                <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px" align="center">
-                <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word">
-                <div style="font-size:24px"><strong>Welcome To A1dos Creations!</strong></div>
-                <div style="font-size:19px">Welcome, <strong>${name}!</strong></div>
-                <div style="font-size:15px">${email}</div>
-                <table align="center" style="margin-top:8px">
-                <tbody><tr style="line-height:normal">
-                <td align="right" style="padding-right:8px">
-                </td>
-                </tr>
-                </tbody>
-                </table>
-                </div>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>Welcome! Check out your account dashboard to review recent activity and upgrade your account!<div style="padding-top:32px;text-align:center"><a href="https://a1dos-creations.com/account/dashboard" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a>
-                <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"><br>We're happy to have you!</div>
-                </div>
-                </div>
-                </tr>
+                  <tr align="center"> {/* This aligns the table cell content */}
+                  <table border="0" cellspacing="0" cellpadding="0" style="padding-bottom:20px;max-width:516px;min-width:220px"> {/* This table is centered by the parent tr align="center" */}
+                  <tbody>
+                  <tr>
+                  <td width="8" style="width:8px"></td>
+                  <td> {/* This td contains your main content */}
+                  <br>
+                  <br>
+                  <div style="border-style:solid;border-width:thin;border-color:#dadce0;border-radius:8px;padding:40px 20px; margin: 0 auto;" align="center"> {/* Add margin: 0 auto; here */}
+                  <div style="font-family:Roboto,RobotoDraft,Helvetica,Arial,sans-serif;border-bottom:thin solid #dadce0;color:rgba(0,0,0,0.87);line-height:32px;padding-bottom:24px;text-align:center;word-break:break-word"> {/* This div has text-align: center; */}
+                  <div style="font-size:24px"><strong>Welcome To A1dos Creations!</strong></div> {/* This text will be centered by its parent */}
+                  <div style="font-size:19px">Welcome, <strong>${name}!</strong></div> {/* This text will be centered by its parent */}
+                  <div style="font-size:15px">${email}</div> {/* This text will be centered by its parent */}
+                  <table align="center" style="margin-top:8px"> {/* This table is centered by align="center" */}
+                  <tbody><tr style="line-height:normal">
+                  <td align="right" style="padding-right:8px">
+                  </td>
+                  </tr>
+                  </tbody>
+                  </table>
+                  </div>
+                  <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left">
+                  <br>Welcome! Check out your account dashboard to review recent activity and upgrade your account!
+                  <div style="padding-top:32px;text-align:center"> {/* This div has text-align: center; */}
+                  <a href="https://a1dos-creations.com/account/dashboard" style="font-family:'Google Sans',Roboto,RobotoDraft,Helvetica,Arial,sans-serif;line-height:16px;color:#ffffff;font-weight:400;text-decoration:none;font-size:14px;display:inline-block;padding:10px 24px;background-color:#4184f3;border-radius:5px;min-width:90px" target="_blank">Account Dashboard</a> {/* This inline-block element will be centered by its parent */}
+                  <div style="font-family:Roboto-Regular,Helvetica,Arial,sans-serif;font-size:14px;color:rgba(0,0,0,0.87);line-height:20px;padding-top:20px;text-align:left"> 
+                  <br>We're happy to have you!</div>
+                  </div>
+                  </div>
+                  </tr>
                 <tr height="32" style="height:32px"><td></td></tr>
       `
     };
@@ -851,7 +855,7 @@ app.post('/login-user', async (req, res) => {
       if(user.email_notifications){
         const msg = {
           to: email,
-          from: 'admin@a1dos-creations.com',
+          from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
           subject: `⚠️ New login for user: ${user.name}`,
           html: `
                     <tr height="32" style="height:32px"><td></td></tr>
@@ -973,7 +977,7 @@ app.get('/auth/google/callback', async (req, res) => {
       if(user.email_notifications){
         const msg = {
           to: email,
-          from: 'admin@a1dos-creations.com',
+          from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
           subject: `❗A Google Account Was Linked To Your A1dos Account.`,
           html: `
                       <tr height="32" style="height:32px"><td></td></tr>
@@ -1089,7 +1093,7 @@ app.post('/update-notifications', async (req, res) => {
 
       const msg = {
         to: email,
-        from: 'admin@a1dos-creations.com',
+        from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
         subject: `✅ Notifications Restored`,
         html: `
           <tr height="32" style="height:32px"><td></td></tr>
@@ -1232,7 +1236,7 @@ app.post('/webhook', async (req, res) => {
         
         const msg = {
           to: user.email,
-          from: 'admin@a1dos-creations.com',
+          from: {email:'admin@a1dos-creations.com',name:'A1dos Account'},
           subject: `Welcome to Premium ${user.name}! 🎉`,
           html: `
            <tr height="32" style="height:32px"><td></td></tr>
