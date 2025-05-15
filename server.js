@@ -1253,7 +1253,7 @@ app.post('/webhook', async (req, res) => {
                 <div style="font-size:24px"><strong>🎁 Welcome To Premium!</strong></div>
                 <div style="font-size:19px">For account: <strong>${user.name}</strong> <strong style="font-size:16px">(${email})</strong></div>
                 <div style="font-size:15px">Enter this key to unlock STL+</div>
-                <div style="font-size:17pc"><strong>${upgradeCode}</strong></div>
+                <div style="font-size:17px"><strong>${upgradeCode}</strong></div>
                 <table align="center" style="margin-top:8px">
                 <tbody><tr style="line-height:normal">
                 <td align="right" style="padding-right:8px">
