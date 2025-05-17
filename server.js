@@ -9,7 +9,7 @@ import cors from 'cors';
 import { google } from 'googleapis';
 import http from 'http';
 import { WebSocketServer } from 'ws';
-import { setupWebSocket } from './websocket.js'
+import { setupWebSocket } from './websocket_board.js'
 import { Server } from 'socket.io';
 import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
