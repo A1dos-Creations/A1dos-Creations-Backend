@@ -44,6 +44,7 @@ const allowedOrigins = [
   'http://192.168.70.1:3000',
   'http://127.0.0.1:53030',
   'https://whiteboard.a1dos-creations.com/',
+  'wss://api.a1dos-creations.com',
   '*'
 ];
 
