@@ -100,33 +100,14 @@ app.use('/api', syncRouter);
 */
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ server });
 const activeSockets = new Map();
 
-server.on('upgrade', (request, socket, head) => {
+/*server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit('connection', ws, request);
   });
-});
-wss.on('connection', (ws, request) => {
-  ws.on('message', (message) => {
-    try {
-      const { token } = JSON.parse(message);
-      if (token) {
-        activeSockets.set(token, ws);
-      }
-    } catch (error) {
-      console.error("WebSocket message error:", error);
-    }
-  });
-  ws.on('close', () => {
-    for (const [token, sock] of activeSockets.entries()) {
-      if (sock === ws) {
-        activeSockets.delete(token);
-      }
-    }
-  });
-});
+});*/
 
 const db = knex({
   client: 'pg',
