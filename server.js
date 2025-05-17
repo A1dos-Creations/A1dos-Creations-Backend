@@ -1836,16 +1836,8 @@ app.post('/api/chat', isAuth, async (req, res) => { // Use isAuth middleware
   }
 });
 
-const wsInstance = expressWs(app, server);
-// Option 2 (Alternative): Let express-ws manage the server internally (less common if you already created 'server')
-// const wsInstance = expressWs(app);
-// const app = wsInstance.app; // Use the app instance returned by express-ws if using Option 2
 
-// === In-Memory Storage ===
-const boards = {};
-// { "boardId1": { clients: Set<WebSocket> } }
-
-// === Middleware ===
+// --- WebSocket Setup ---
 app.use(cors()); // Keep CORS for HTTP requests
 app.use(express.json());
 
@@ -1857,148 +1849,93 @@ app.get('/api/health', (req, res) => {
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://a1dos-creations.com";
 const BACKEND_HOST = process.env.RENDER_EXTERNAL_URL || `https://api.a1dos-creations.com/`;
 
-const io = new Server(server, {
-  cors: {
-      origin: FRONTEND_URL,
-      methods: ["GET", "POST"],
-      credentials: true
-  },
-  // Consider adjusting limits if needed, especially for base64 images
-  // maxHttpBufferSize: 1e7, // Example: 10 MB limit
-  // pingTimeout: 60000, // Increase timeout if needed
+const whiteboards = {};
+
+const generateRandomId = (length = 10) => {
+  const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+};
+
+wss.on('connection', ws => {
+  let whiteboardId;
+  let userId = uuidv4(); // Generate a unique user ID for each connection
+
+  ws.on('message', message => {
+    try {
+      const data = JSON.parse(message.toString());
+      whiteboardId = data.whiteboardId;
+
+      if (data.type = 'join') {
+        if (!whiteboards[whiteboardId]) {
+          whiteboards[whiteboardId] = { elements: {}, users: {} };
+        }
+        whiteboards[whiteboardId].users[userId] = ws;
+        ws.send(JSON.stringify({ type: 'initial', elements: whiteboards[whiteboardId].elements, userId }));
+        broadcast(whiteboardId, { type: 'userJoined', userId });
+      } else if (data.type === 'draw' || data.type === 'text' || data.type === 'stickyNote' || data.type === 'image' || data.type === 'move' || data.type === 'edit' || data.type === 'delete') {
+        if (whiteboards[whiteboardId] && whiteboards[whiteboardId].elements[data.elementId]) {
+          whiteboards[whiteboardId].elements[data.elementId] = { ...whiteboards[whiteboardId].elements[data.elementId], ...data.payload };
+        } else if (data.type !== 'move' && data.type !== 'edit') {
+          const elementId = uuidv4();
+          whiteboards[whiteboardId].elements[elementId] = { ...data.payload, id: elementId, type: data.type, userId };
+          data.payload.id = elementId;
+        }
+        broadcast(whiteboardId, data);
+      } else if (data.type === 'panZoom') {
+        broadcast(whiteboardId, data);
+      }
+    } catch (error) {
+      console.error('Failed to handle WebSocket event or parse message:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    if (whiteboardId && whiteboards[whiteboardId] && whiteboards[whiteboardId].users[userId]) {
+      delete whiteboards[whiteboardId].users[userId];
+      broadcast(whiteboardId, { type: 'userLeft', userId });
+      if (Object.keys(whiteboards[whiteboardId].users).length === 0) {
+        delete whiteboards[whiteboardId]; // Clean up if no users are left
+      }
+    }
+    console.log(`User ${userId} disconnected from whiteboard ${whiteboardId}`);
+  });
+
+  ws.on('error', error => {
+    console.error(`WebSocket error for user ${userId} on whiteboard ${whiteboardId}:`, error);
+  })
 });
 
-// --- Socket.IO Event Handling ---
-io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
-
-  socket.on('join:board', async (boardId) => {
-      if (!boardId) {
-          console.error(`[${socket.id}] Error: boardId is required to join.`);
-          socket.emit('error:joining', { message: 'Board ID is required.' });
-          return;
-      }
-
+function broadcast(whiteboardId, data) {
+  if (whiteboards[whiteboardId] && whiteboards[whiteboardId].users) {
+    const message = JSON.stringify(data);
+    for (const userId in whiteboards[whiteboardId].users) {
       try {
-          // Attempt to fetch elements. This implicitly checks/creates the board via dbStore.
-          // If boardId format is invalid, getBoardElements will throw an error.
-          const currentElements = await dbStore.getBoardElements(boardId);
-
-          // If successful (even if board was just created and elements is empty), join the room
-          socket.join(boardId);
-          console.log(`User ${socket.id} joined board: ${boardId}`);
-
-          // Send current board state to the newly joined user
-          socket.emit('board:init', currentElements);
-          // console.log(`Sent initial state for board ${boardId} to ${socket.id}`);
-
+        whiteboards[whiteboardId].users[userId].send(message);
       } catch (error) {
-          console.error(`[${socket.id}] Error joining board ${boardId}:`, error.message);
-          // Notify the client about the error (e.g., invalid ID format)
-          socket.emit('error:joining', { message: `Failed to join board: ${error.message}` });
+        console.error('Unable/Failed to broadcast message:', error);
       }
-  });
+    }
+  }
+}
 
-  socket.on('element:add', async ({ boardId, element }) => {
-      if (!boardId || !element || !element.id) {
-          console.error(`[${socket.id}] Invalid element:add data:`, { boardId, elementId: element?.id });
-          return; // Don't proceed if data is invalid
-      }
-      try {
-          const added = await dbStore.addElement(boardId, element);
-          if (added) {
-              // Broadcast the new element to all *other* clients in the room
-              socket.to(boardId).emit('element:add', element);
-              // console.log(`[${boardId}] Broadcasted add element: ${element.id} from ${socket.id}`);
-          } else {
-               console.warn(`[${boardId}] Failed to add element ${element.id} via socket ${socket.id} (possibly duplicate or DB error)`);
-               // Optionally notify sender of failure
-               // socket.emit('element:add:failed', { elementId: element.id, reason: 'Failed to save element.' });
-          }
-      } catch (error) {
-           console.error(`[${socket.id}] Error handling element:add for board ${boardId}:`, error);
-           // Optionally notify sender
-           // socket.emit('element:add:failed', { elementId: element?.id, reason: 'Server error during add.' });
-      }
-  });
+app.post('/create', (req, res) => {
+  const newId = generateRandomId();
+  whiteboards[newId] = { elements: {}, users: {} };
+  res.json({ boardId: newId });
+});
 
-  socket.on('element:update', async ({ boardId, element }) => {
-      if (!boardId || !element || !element.id) {
-          console.error(`[${socket.id}] Invalid element:update data:`, { boardId, elementId: element?.id });
-          return;
-      }
-      try {
-          const updated = await dbStore.updateElement(boardId, element);
-          if (updated) {
-              // Broadcast the updated element to all *other* clients in the room
-              socket.to(boardId).emit('element:update', element);
-              // console.log(`[${boardId}] Broadcasted update element: ${element.id} from ${socket.id}`);
-          } else {
-               console.warn(`[${boardId}] Failed to update element ${element.id} via socket ${socket.id} (not found or DB error)`);
-               // Optionally notify sender
-          }
-      } catch (error) {
-           console.error(`[${socket.id}] Error handling element:update for board ${boardId}:`, error);
-           // Optionally notify sender
-      }
-  });
-
-  socket.on('element:delete', async ({ boardId, elementId }) => {
-      if (!boardId || !elementId) {
-           console.error(`[${socket.id}] Invalid element:delete data:`, { boardId, elementId });
-          return;
-      }
-      try {
-          const deleted = await dbStore.deleteElement(boardId, elementId);
-          if (deleted) {
-              // Broadcast the ID of the deleted element to all *other* clients
-              socket.to(boardId).emit('element:delete', elementId);
-              // console.log(`[${boardId}] Broadcasted delete element: ${elementId} from ${socket.id}`);
-          } else {
-               console.warn(`[${boardId}] Failed to delete element ${elementId} via socket ${socket.id} (not found or DB error)`);
-               // Optionally notify sender
-          }
-      } catch (error) {
-           console.error(`[${socket.id}] Error handling element:delete for board ${boardId}:`, error);
-           // Optionally notify sender
-      }
-  });
-
-
-  socket.on('disconnect', (reason) => {
-      console.log(`User disconnected: ${socket.id}. Reason: ${reason}`);
-      // socket.io automatically handles leaving rooms on disconnect
-  });
-
-  socket.on('error', (err) => {
-      console.error(`[${socket.id}] Socket Error:`, err);
-  });
-
-  // Handle connection errors more explicitly if needed
-  socket.on('connect_error', (err) => {
-      // This often happens due to CORS issues or server unavailability during connection attempt
-      console.error(`[${socket.id}] Connection Error: ${err.message}`, err.data);
-  });
+app.post('/create-custom', (req, res) => {
+  const customId = req.body.customId;
+  if (!customId || whiteboards[customId]) {
+    return res.status(400).json({ error: 'Custom ID is invalid or already taken' });
+  }
+  whiteboards[customId] = { elements: {}, users: {} };
+  res.json({ boardId: customId });
 });
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// Graceful shutdown handling (optional but good practice for Render)
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  io.close(() => { // Close socket connections first
-      console.log('Socket.IO server closed.');
-      server.close(() => {
-          console.log('HTTP server closed.');
-          // Close database pool
-          require('./db').pool.end().then(() => { // Assuming pool is exported directly for this
-              console.log('Database pool closed.');
-              process.exit(0);
-          }).catch(err => {
-              console.error('Error closing database pool:', err);
-              process.exit(1);
-          });
-      });
-  });
-});
