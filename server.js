@@ -50,7 +50,7 @@ const allowedOrigins = [
 
 const app = express();
 app.use(cors({
-  origin: allowedOrigins
+  origin: '*'
   /*origin: function (origin, callback) {
 
       if (!origin || allowedOrigins.includes(origin)) {
@@ -105,8 +105,7 @@ app.use('/api', syncRouter);
 */
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-const activeSockets = new Map();
+const wss = new WebSocketServer({ server, path: '/ws' });
 
 /*server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
