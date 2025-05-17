@@ -9,6 +9,7 @@ import cors from 'cors';
 import { google } from 'googleapis';
 import http from 'http';
 import { WebSocketServer } from 'ws';
+import { setupWebSocket } from './websocket.js'
 import { Server } from 'socket.io';
 import Stripe from 'stripe';
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -105,13 +106,8 @@ app.use('/api', syncRouter);
 */
 
 //const wss = new WebSocketServer({ port: 9999, noServer: true, path: '/ws' });
-let WSServer = WebSocketServer;
-let server = http.createServer();
-let wss = new WSServer({
-  server: server,
-  perMessageDeflate: false,
-});
-server.on('request', app);
+const server = http.createServer(app);
+const wss = setupWebSocket(server);
 
 server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
@@ -1844,79 +1840,6 @@ app.get('/api/health', (req, res) => {
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://a1dos-creations.com";
 const BACKEND_HOST = process.env.RENDER_EXTERNAL_URL || `https://api.a1dos-creations.com/`;
-
-const whiteboards = {};
-
-const generateRandomId = (length = 10) => {
-  const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return result;
-};
-
-wss.on('connection', ws => {
-  let whiteboardId;
-  let userId = uuidv4(); // Generate a unique user ID for each connection
-
-  ws.on('message', message => {
-    try {
-      const data = JSON.parse(message.toString());
-      whiteboardId = data.whiteboardId;
-
-      if (data.type = 'join') {
-        if (!whiteboards[whiteboardId]) {
-          whiteboards[whiteboardId] = { elements: {}, users: {} };
-        }
-        whiteboards[whiteboardId].users[userId] = ws;
-        ws.send(JSON.stringify({ type: 'initial', elements: whiteboards[whiteboardId].elements, userId }));
-        broadcast(whiteboardId, { type: 'userJoined', userId });
-      } else if (data.type === 'draw' || data.type === 'text' || data.type === 'stickyNote' || data.type === 'image' || data.type === 'move' || data.type === 'edit' || data.type === 'delete') {
-        if (whiteboards[whiteboardId] && whiteboards[whiteboardId].elements[data.elementId]) {
-          whiteboards[whiteboardId].elements[data.elementId] = { ...whiteboards[whiteboardId].elements[data.elementId], ...data.payload };
-        } else if (data.type !== 'move' && data.type !== 'edit') {
-          const elementId = uuidv4();
-          whiteboards[whiteboardId].elements[elementId] = { ...data.payload, id: elementId, type: data.type, userId };
-          data.payload.id = elementId;
-        }
-        broadcast(whiteboardId, data);
-      } else if (data.type === 'panZoom') {
-        broadcast(whiteboardId, data);
-      }
-    } catch (error) {
-      console.error('Failed to handle WebSocket event or parse message:', error);
-    }
-  });
-
-  ws.on('close', () => {
-    if (whiteboardId && whiteboards[whiteboardId] && whiteboards[whiteboardId].users[userId]) {
-      delete whiteboards[whiteboardId].users[userId];
-      broadcast(whiteboardId, { type: 'userLeft', userId });
-      if (Object.keys(whiteboards[whiteboardId].users).length === 0) {
-        delete whiteboards[whiteboardId]; // Clean up if no users are left
-      }
-    }
-    console.log(`User ${userId} disconnected from whiteboard ${whiteboardId}`);
-  });
-
-  ws.on('error', error => {
-    console.error(`WebSocket error for user ${userId} on whiteboard ${whiteboardId}:`, error);
-  })
-});
-
-function broadcast(whiteboardId, data) {
-  if (whiteboards[whiteboardId] && whiteboards[whiteboardId].users) {
-    const message = JSON.stringify(data);
-    for (const userId in whiteboards[whiteboardId].users) {
-      try {
-        whiteboards[whiteboardId].users[userId].send(message);
-      } catch (error) {
-        console.error('Unable/Failed to broadcast message:', error);
-      }
-    }
-  }
-}
 
 app.post('/create', (req, res) => {
   const newId = generateRandomId();
