@@ -104,14 +104,23 @@ app.use('/api', assignmentsRouter);
 app.use('/api', syncRouter);
 */
 
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+//const wss = new WebSocketServer({ port: 9999, noServer: true, path: '/ws' });
+let WSServer = WebSocketServer;
+let server = http.createServer();
+let wss = new WSServer({
+  server: server,
+  perMessageDeflate: false,
+});
+server.on('request', app);
 
-/*server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
+server.on('upgrade', (request, socket, head) => {
+  const origin = request.headers.origin;
+  console.log('Upgrade request origin:', origin);
+  socket.write('HTTP/1.1 101 Switching Protocols\r\n' + 'Upgrade: websocket\r\n' + 'Connection: Upgrade\r\n' + `Access-Control-Allow-Origin: ${origin}\r\n` + '\r\n');
+  wss.handleUpgrade(request, socket, head, ws => {
     wss.emit('connection', ws, request);
   });
-});*/
+});
 
 const db = knex({
   client: 'pg',
@@ -1923,4 +1932,4 @@ app.post('/create-custom', (req, res) => {
 });
 
 const PORT = process.env.PORT;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+//app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
