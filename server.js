@@ -116,8 +116,10 @@ server.on('request', app);
 server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
   console.log('Upgrade request origin:', origin);
-  socket.write('HTTP/1.1 101 Switching Protocols\r\n' + 'Upgrade: websocket\r\n' + 'Connection: Upgrade\r\n' + `Access-Control-Allow-Origin: ${origin}\r\n` + '\r\n');
   wss.handleUpgrade(request, socket, head, ws => {
+    ws.upgradeReq = request;
+    ws.upgradeReq.headers.origin = origin;
+
     wss.emit('connection', ws, request);
   });
 });
