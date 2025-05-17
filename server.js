@@ -43,7 +43,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://192.168.70.1:3000',
   'http://127.0.0.1:53030/',
-  'https://whiteboard.a1dos-creations.com/'
+  'https://whiteboard.a1dos-creations.com/',
+  '*'
 ];
 
 const app = express();
