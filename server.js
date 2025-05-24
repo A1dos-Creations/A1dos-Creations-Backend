@@ -37,6 +37,7 @@ const allowedOrigins = [
   'https://a1dos-creations.com',
   'https://a1dos-login.onrender.com',
   'https://api.a1dos-creations.com',
+  'https://streams.a1dos-creations.com',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://bilnakhjjjkhhhdlcajijkodkhmanfbg',
   'chrome-extension://pafdkffolelojifgeepmjjofdendeojf',
@@ -52,7 +53,7 @@ const allowedOrigins = [
 
 const app = express();
 app.use(cors({
-  origin: function (origin, callback) {
+  origin: '*',/*function (origin, callback) {
 
       if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
@@ -60,7 +61,7 @@ app.use(cors({
           console.error(`CORS Error: Origin "${origin}" not in allowed list.`); // Log denied origins
           callback(new Error('Not allowed by CORS'));
       }
-  },
+  },*/
   methods: ['GET', 'POST'], // Specify allowed methods
   allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'], // Specify allowed headers
   optionsSuccessStatus: 200
