@@ -46,13 +46,11 @@ const allowedOrigins = [
   'http://127.0.0.1:53030',
   'https://whiteboard.a1dos-creations.com/',
   'wss://api.a1dos-creations.com',
-  '*'
 ];
 
 const app = express();
 app.use(cors({
-  origin: '*'
-  /*origin: function (origin, callback) {
+  origin: function (origin, callback) {
 
       if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
@@ -60,9 +58,10 @@ app.use(cors({
           console.error(`CORS Error: Origin "${origin}" not in allowed list.`); // Log denied origins
           callback(new Error('Not allowed by CORS'));
       }
-  },*/
-  //methods: ['GET', 'POST'], // Specify allowed methods
-  //allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'] // Specify allowed headers
+  },
+  methods: ['GET', 'POST'], // Specify allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'], // Specify allowed headers
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
 
@@ -75,6 +74,56 @@ app.use(session({
   saveUninitialized: false,
   cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
+
+app.get('/upcoming-streams', async (req, res) => {
+   if (!YOUTUBE_API_KEY || !YOUTUBE_CHANNEL_ID) {
+        return res.status(500).json({ message: 'API key or Channel ID not configured on server.' });
+    }
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=<span class="math-inline">\{YOUTUBE\_CHANNEL\_ID\}&eventType\=upcoming&type\=video&key\=</span>{YOUTUBE_API_KEY}&maxResults=5`;
+
+    try {
+        const response = await axios.get(url);
+        // We only need to send the video IDs and basic snippet info initially
+        const upcomingStreams = response.data.items.map(item => ({
+            videoId: item.id.videoId,
+            title: item.snippet.title,
+            thumbnailUrl: item.snippet.thumbnails.high.url // Or another resolution
+        }));
+        res.json(upcomingStreams);
+    } catch (error) {
+        console.error('Error fetching upcoming streams from YouTube API:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({
+            message: 'Failed to fetch upcoming streams',
+            error: error.response ? error.response.data.error.message : 'Server error'
+        });
+    }
+});
+
+app.get('/api/stream-details/:videoId', async (req, res) => {
+    const { videoId } = req.params;
+    if (!YOUTUBE_API_KEY) {
+        return res.status(500).json({ message: 'API key not configured on server.' });
+    }
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=<span class="math-inline">\{videoId\}&key\=</span>{YOUTUBE_API_KEY}`;
+
+    try {
+        const response = await axios.get(url);
+        if (response.data.items && response.data.items.length > 0) {
+            res.json(response.data.items[0]);
+        } else {
+            res.status(404).json({ message: 'Stream details not found for video ID: ' + videoId });
+        }
+    } catch (error) {
+        console.error(`Error fetching stream details for ${videoId} from YouTube API:`, error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({
+            message: 'Failed to fetch stream details',
+            error: error.response ? error.response.data.error.message : 'Server error'
+        });
+    }
+});
 
 app.post('/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
