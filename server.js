@@ -102,7 +102,7 @@ app.get('/upcoming-streams', async (req, res) => {
     }
 });
 
-app.get('/api/stream-details/:videoId', async (req, res) => {
+app.get('/stream-details/:videoId', async (req, res) => {
     const { videoId } = req.params;
     if (!YOUTUBE_API_KEY) {
         return res.status(500).json({ message: 'API key not configured on server.' });
