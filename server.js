@@ -54,7 +54,7 @@ const allowedOrigins = [
 
 const app = express();
 app.use(cors({
-  origin: '*',/*function (origin, callback) {
+  origin: '*',function (origin, callback) {
 
       if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
@@ -62,12 +62,13 @@ app.use(cors({
           console.error(`CORS Error: Origin "${origin}" not in allowed list.`); // Log denied origins
           callback(new Error('Not allowed by CORS'));
       }
-  },*/
+  },
   methods: ['GET', 'POST'], // Specify allowed methods
   allowedHeaders: ['Content-Type', 'Authorization', 'x-client-source'], // Specify allowed headers
   optionsSuccessStatus: 200
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
   store: new PgSessionStore({
@@ -79,6 +80,31 @@ app.use(session({
   cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
+import authRoutes from './routes/authRoutes.js';
+import buttonRoutes from './routes/buttonRoutes.js';
+// import { connectDB } from './config/db.js'; // Uncomment when DB connection is set up
+
+// --- Database Connection ---
+connectDB(); // Call your DB connection function
+
+app.get('/', (req, res) => {
+    res.send('A1dos Creations API is running!');
+});
+
+app.use('/auth', authRoutes);
+app.use('/buttons', buttonRoutes);
+
+
+// --- Error Handling Middleware (Basic) ---
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(err.status || 500).json({
+        message: err.message || 'An unexpected error occurred.',
+        // Optionally include stack trace in development
+        // stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    });
+});
+
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
 
@@ -86,7 +112,7 @@ app.get('/upcoming-streams', async (req, res) => {
    if (!YOUTUBE_API_KEY || !YOUTUBE_CHANNEL_ID) {
         return res.status(500).json({ message: 'API key or Channel ID not configured on server.' });
     }
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=<span class="math-inline">\{YOUTUBE\_CHANNEL\_ID\}&eventType\=upcoming&type\=video&key\=</span>{YOUTUBE_API_KEY}&maxResults=5`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=<span class="math-inline">\{YOUTUBE\_CHANNEL\_ID\}&eventType\=upcoming&type\=video&key\=</span>${YOUTUBE_API_KEY}&maxResults=5`;
 
     try {
         const response = await axios.get(url);
@@ -151,12 +177,6 @@ const authenticateToken = (req, res, next) => {
       next();
   });
 };
-
-/*
-app.use('/api', classesRouter);
-app.use('/api', assignmentsRouter);
-app.use('/api', syncRouter);
-*/
 
 //const wss = new WebSocketServer({ port: 9999, noServer: true, path: '/ws' });
 const server = http.createServer(app);
